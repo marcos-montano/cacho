@@ -25,7 +25,7 @@
 ### What makes Cacho unique?
 1. **The Cubilete & Two Rolls:** A player gets up to two rolls. Standing on Roll 1 is called ***De Mano*** and awards a **+5 bonus** for special hands.
 2. **El Volteo (The Die Flip):** If you take the 2nd roll, you **must flip 1 die** to its mathematical opposite ($1 \leftrightarrow 6$, $2 \leftrightarrow 5$, $3 \leftrightarrow 4$) and may optionally flip a second die. This turns chance into strategy and mental math!
-3. **La Taquilla (The 3×3 Grid):** 
+3. **La Taquilla (The 3×3 Grid):**
    - Left: **Chicos** (Balas=1s, Tontos=2s, Trenes=3s)
    - Center: **Juegos** (Escalera, Full, Póker)
    - Right: **Grandes** (Cuadras=4s, Quinas=5s, Senas=6s)
@@ -69,7 +69,7 @@ You do not need paid servers or complex containers. This game compiles down to l
 - **Why:** Unlimited bandwidth, instant cache invalidation, sub-second global latency, custom domains, 100% free forever.
 - **Deploy via Git (Automated):**
   1. Push this repository to GitHub or GitLab.
-  2. In Cloudflare Dashboard $\rightarrow$ **Workers & Pages** $\rightarrow$ **Create Application** $\rightarrow$ **Pages** $\rightarrow$ **Connect to Git**.
+  2. In Cloudflare Dashboard → **Workers & Pages** → **Create Application** → **Pages** → **Connect to Git**.
   3. Set:
      - **Build command:** `npm run build`
      - **Build output directory:** `dist`
@@ -103,7 +103,7 @@ You do not need paid servers or complex containers. This game compiles down to l
                github_token: ${{ secrets.GITHUB_TOKEN }}
                publish_dir: ./dist
      ```
-  2. Under repository **Settings $\rightarrow$ Pages**, set Source to `gh-pages` branch.
+  2. Under repository **Settings → Pages**, set Source to `gh-pages` branch.
 
 ### Option 3: Vercel / Netlify
 - Import your repository into [Vercel](https://vercel.com) or [Netlify](https://netlify.com); Vite projects are auto-detected with zero configuration.
@@ -150,8 +150,8 @@ You do not need paid servers or complex containers. This game compiles down to l
 ## 🚀 Quick Start & Local Development
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- `npm` or `pnpm`
+- [Node.js](https://nodejs.org/) v18 or higher (v24 works great)
+- `npm`
 
 ### Installation & Run
 ```bash
@@ -164,7 +164,6 @@ npm install
 
 # Start local development server with Hot Module Reload
 npm run dev
-
 # Open your browser at http://localhost:5173
 ```
 
@@ -179,8 +178,11 @@ npm run preview
 
 ### Run Tests
 ```bash
-# Run unit tests for Cacho rules and scoring engine
+# Run all unit tests once
 npm test
+
+# Run tests in watch mode (re-runs on file save)
+npm run test:watch
 ```
 
 ---
@@ -191,12 +193,12 @@ No App Store or Google Play account required!
 
 - **iPad / iPhone (Safari):**
   1. Open your deployed URL.
-  2. Tap the **Share** button ($\uparrow$ box icon).
+  2. Tap the **Share** button (↑ box icon).
   3. Tap **Add to Home Screen**.
   4. The game opens full screen without browser bars.
 - **Android (Chrome):**
   1. Open your URL.
-  2. Tap the menu ($\vdots$) $\rightarrow$ tap **Install App** or **Add to Home Screen**.
+  2. Tap the menu (⋮) → tap **Install App** or **Add to Home Screen**.
 - **Chromebook / Mac / Windows (Chrome/Edge):**
   1. Click the **Install** icon on the right side of the address bar.
 
@@ -207,34 +209,32 @@ No App Store or Google Play account required!
 ```text
 cacho/
 ├── docs/                          # Original documentation & prototype
-│   ├── cacho_boliviano.html       # Standalone HTML prototype
+│   ├── cacho_boliviano.html       # Standalone HTML prototype (reference)
 │   ├── cacho_deployment_...md     # English rules & deployment background
 │   └── info.md                    # Historical notes
 ├── public/                        # Static assets (icons, manifest, sound effects)
 │   ├── favicon.ico
-│   ├── manifest.json              # PWA manifest for home screen install
-│   └── icons/                     # App icons (192x192, 512x512)
+│   └── icons/                     # App icons (192×192, 512×512)
 ├── src/
 │   ├── core/                      # Pure Game Logic (Zero DOM dependencies)
+│   │   ├── types.ts               # State, Player, Die, Category, Event interfaces
 │   │   ├── engine.ts              # Turn state machine & roll coordinator
 │   │   ├── scoring.ts             # Combinations: Escalera, Full, Poker, Grande
-│   │   ├── volteo.ts              # Inversion logic ($7 - n$) & rule checks
-│   │   └── types.ts               # State, Player, Die, Category interfaces
+│   │   └── volteo.ts              # Inversion logic (7 − n) & rule checks
 │   ├── ui/                        # Presentation & Components
 │   │   ├── components/            # Felt board, dice rack, taquilla scoreboard
 │   │   ├── animations/            # Dice tumble, flip 3D transitions
-│   │   ├── sound/                 # Procedural Tone.js / Web Audio manager
-│   │   └── hints/                 # Educational helper & probability hints
+│   │   └── sound/                 # Procedural Tone.js / Web Audio manager
 │   ├── network/                   # Multiplayer Sync
 │   │   ├── adapter.ts             # Generic sync interface (Local vs Online)
-│   │   ├── localAdapter.ts        # Pass & Play implementation
-│   │   └── realtimeAdapter.ts     # Firebase / WebRTC room implementation
+│   │   └── localAdapter.ts        # Pass & Play implementation
 │   ├── index.html                 # Main web entrypoint
 │   └── main.ts                    # App bootstrap & event wiring
-├── tests/                         # Automated Unit Tests
-│   ├── scoring.test.ts            # Scoring combos, De Mano bonuses
-│   ├── volteo.test.ts             # Mandatory & optional flip logic
-│   └── dormida.test.ts            # Instant knockout rules
+├── tests/                         # Automated Unit Tests (Vitest)
+│   ├── scoring.test.ts            # Scoring combos, De Mano bonuses (34 tests)
+│   ├── volteo.test.ts             # Mandatory & optional flip logic (18 tests)
+│   └── engine.test.ts             # Full state machine integration (27 tests)
+├── .gitignore
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -259,7 +259,7 @@ cacho/
 | **Póker** | Four of a Kind (4 identical dice) | Juegos | **45 pts** / **40 pts** |
 | **Grande 1 & 2** | Five of a Kind | Bottom | **50 pts** each |
 | **La Dormida** | Five of a Kind on Roll 1 | Knockout | **Instant Match Victory** |
-| **El Volteo** | Die Flip (Mandatory 1st, Optional 2nd) | Mechanic | Opposite side ($7 - \text{face}$) |
+| **El Volteo** | Die Flip (Mandatory 1st, Optional 2nd) | Mechanic | Opposite side (7 − face) |
 | **Tachar** | Scratch / Strikeout | Move | Mark an "X" for 0 points |
 
 ---
