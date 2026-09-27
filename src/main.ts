@@ -121,14 +121,18 @@ function buildHTML(): void {
             </div>
           </div>
 
-          <!-- Cubilete shake zone + Dice -->
-          <div id="cubilete-zone" class="cubilete-zone">
-            <div id="cubilete" class="cubilete" title="El Cubilete">🪣</div>
+          <!-- Cubilete + Dice + Volteo Assistant (side by side) -->
+          <div class="dice-va-row">
+            <!-- Left: cubilete + dice -->
+            <div class="dice-col">
+              <div id="cubilete-zone" class="cubilete-zone">
+                <img id="cubilete" class="cubilete" src="/cubilete.jpg" alt="El Cubilete" title="El Cubilete — ¡Agita!" />
+              </div>
+              <div id="dice-mount"></div>
+            </div>
+            <!-- Right: Volteo Assistant -->
+            <div id="va-mount" class="va-col"></div>
           </div>
-          <div id="dice-mount"></div>
-
-          <!-- Volteo Assistant -->
-          <div id="va-mount"></div>
 
           <!-- Scoreboard -->
           <div id="scoreboard-mount"></div>
@@ -445,16 +449,16 @@ function syncUI(): void {
     'idle';
   diceArea?.render(state.dice, diceMode);
 
-  // Determine if we're in scoring phase and compute potentials
-  const isScoring = phase === 'SCORING';
+  // Determine if we're in scoring phase (or can score by skipping optional flip)
+  const canScoreNow = phase === 'SCORING' || phase === 'VOLTEO_OPTIONAL';
   let potentials: Partial<Record<Category, number>> = {};
-  if (isScoring) {
+  if (canScoreNow) {
     const openCats = ALL_CATEGORIES.filter((c) => activePlayer.scores[c] === undefined);
     potentials = previewAllScores(openCats, state.dice, state.isDeMano);
   }
 
-  // Scoreboard
-  scoreboard?.render(state.players, isScoring, potentials, state.activePlayerIndex, currentLang);
+  // Scoreboard — show as clickable if scoring OR in optional volteo phase
+  scoreboard?.render(state.players, canScoreNow, potentials, state.activePlayerIndex, currentLang);
 
   // Volteo Assistant
   const isVolteo = phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL';
@@ -583,12 +587,23 @@ function handleCategoryClick(cat: Category): void {
   if (!engine) return;
   const state = engine.getState();
 
-  if (state.turnPhase !== 'SCORING') return;
+  // Allow scoring from SCORING or VOLTEO_OPTIONAL (auto-skip the optional flip)
+  if (state.turnPhase !== 'SCORING' && state.turnPhase !== 'VOLTEO_OPTIONAL') return;
 
   const activePlayer = state.players[state.activePlayerIndex];
   if (activePlayer.scores[cat] !== undefined) {
     toast.show(currentLang === 'es' ? '⚠️ ¡Esa categoría ya está llena!' : '⚠️ That category is already filled!');
     return;
+  }
+
+  // If in optional volteo phase, auto-skip it first
+  if (state.turnPhase === 'VOLTEO_OPTIONAL') {
+    try {
+      engine.skipOptionalFlip();
+    } catch (e) {
+      toast.show(`⚠️ ${(e as Error).message}`);
+      return;
+    }
   }
 
   // Calculate what the score would be
