@@ -13,10 +13,10 @@
 import './style.css';
 
 import { GameEngine, createPlayer } from './core/engine';
-import type { Category, GameState, Player } from './core/types';
+import type { Category, GameEvent, GameState, Player } from './core/types';
 import { ALL_CATEGORIES } from './core/types';
 import { calculateScore, previewAllScores } from './core/scoring';
-import { PeerAdapter, generateRoomCode, type NetworkAdapter } from './core/network';
+import { PeerAdapter, generateRoomCode, type NetworkAdapter, type LobbyClient } from './core/network';
 import { initAudio, toggleMute, playShake, playClick, playScore, playWin } from './core/audio';
 import QRCode from 'qrcode';
 
@@ -76,6 +76,9 @@ let volteoAssistant: VolteoAssistant | null = null;
 let network: NetworkAdapter | null = null;
 let isHost: boolean = false;
 let myPlayerId: number | null = null; // Used to block inputs if it's not our turn in multiplayer
+let myClientId: string = 'client_' + Math.random().toString(36).substring(2, 9);
+let lobbyClients: LobbyClient[] = [];
+let dormidaFired: boolean = false;
 
 // Flip mode: during volteo phases, clicking a die flips it instead of keeping it
 let flipMode = false;
@@ -117,7 +120,8 @@ function buildHTML(): void {
           </div>
           <div id="network-status" class="network-status"></div>
           <div id="room-code-display" class="room-code-display" style="display: none;">
-            <p>Share this code: <strong id="room-code-text"></strong></p>
+            <p>Compartir código: <strong id="room-code-text"></strong></p>
+            <button id="btn-copy-room-link" class="btn-copy-link">📋 Copiar Enlace Directo / Copy Link</button>
             <div id="qrcode"></div>
           </div>
         </div>
@@ -354,19 +358,49 @@ function initSetupListeners(): void {
   document.getElementById('btn-host-game')!.addEventListener('click', async () => {
     isHost = true;
     const roomCode = generateRoomCode();
-    myPlayerId = 1; // Host is always player 1 to start
+    myPlayerId = 1; // Host is always player 1
     
-    document.getElementById('network-status')!.textContent = 'Connecting...';
+    // In online game, host is Player 1 using their custom name and avatar
+    setupPlayers = [setupPlayers[0]];
+    renderSetupScreen();
+    const addBtn = document.getElementById('btn-add-player') as HTMLButtonElement;
+    if (addBtn) addBtn.style.display = 'none';
+
+    lobbyClients = [{
+      clientId: 'host',
+      name: setupPlayers[0].name,
+      avatar: setupPlayers[0].avatar,
+      playerId: 1,
+    }];
+
+    document.getElementById('network-status')!.textContent = 'Conectando a la red PeerJS... / Connecting...';
     
     network = new PeerAdapter(true, roomCode, () => {
-      document.getElementById('network-status')!.textContent = 'Room created! Waiting for players...';
+      document.getElementById('network-status')!.textContent = `¡Sala ${roomCode} creada! Esperando jugadores...`;
       const rcd = document.getElementById('room-code-display')!;
       rcd.style.display = 'block';
       document.getElementById('room-code-text')!.textContent = roomCode;
       
-      const shareUrl = `${window.location.origin}/?room=${roomCode}`;
+      // Full URL preserving current origin and pathname (e.g. /cacho/ on GitHub Pages)
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.hash = '';
+      url.searchParams.set('room', roomCode);
+      const shareUrl = url.toString();
+      
+      const copyBtn = document.getElementById('btn-copy-room-link');
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            toast.show(currentLang === 'es' ? '📋 ¡Enlace copiado al portapapeles!' : '📋 Link copied to clipboard!');
+          }).catch(() => {
+            prompt('Copy link:', shareUrl);
+          });
+        };
+      }
+
       const canvas = document.createElement('canvas');
-      QRCode.toCanvas(canvas, shareUrl, (err: Error | null | undefined) => {
+      QRCode.toCanvas(canvas, shareUrl, { width: 180, margin: 2 }, (err: Error | null | undefined) => {
         if (!err) {
           const qrDiv = document.getElementById('qrcode')!;
           qrDiv.innerHTML = '';
@@ -374,11 +408,18 @@ function initSetupListeners(): void {
         }
       });
 
-      // Host starts game when they want
+      // Host starts game
       const btnStart = document.getElementById('btn-start-game')!;
       btnStart.textContent = '🎲 Start Multiplayer Game';
       btnStart.onclick = () => {
-        startGame(); // Starts and broadcasts state
+        if (setupPlayers.length < 2) {
+          if (!confirm(currentLang === 'es'
+            ? 'Solo hay 1 jugador en la sala. ¿Deseas iniciar para probar?'
+            : 'Only 1 player in the room. Start to test?')) {
+            return;
+          }
+        }
+        startGame();
       };
     }, (err) => {
       document.getElementById('network-status')!.textContent = `Error: ${err.message}`;
@@ -390,20 +431,31 @@ function initSetupListeners(): void {
   document.getElementById('btn-join-game')!.addEventListener('click', () => {
     isHost = false;
     const codeInput = document.getElementById('input-room-code') as HTMLInputElement;
-    const roomCode = codeInput.value.toUpperCase();
+    const roomCode = codeInput.value.trim().toUpperCase();
     if (roomCode.length !== 4) {
-      alert('Room code must be 4 letters');
+      alert(currentLang === 'es' ? 'El código de sala debe tener 4 letras' : 'Room code must be 4 letters');
       return;
     }
     
-    document.getElementById('network-status')!.textContent = 'Joining room...';
+    document.getElementById('network-status')!.textContent = 'Conectando a la sala... / Joining room...';
     
     network = new PeerAdapter(false, roomCode, () => {
-      document.getElementById('network-status')!.textContent = 'Connected! Waiting for host to start...';
-      myPlayerId = setupPlayers.length; // Will be reassigned by host eventually
-      // Send join message
-      const myPlayerInfo = createPlayer(myPlayerId, setupPlayers[0].name, setupPlayers[0].avatar);
-      network!.broadcast({ type: 'PLAYER_JOIN', player: myPlayerInfo });
+      document.getElementById('network-status')!.textContent = '¡Conectado! Sincronizando con el anfitrión...';
+      const myName = setupPlayers[0]?.name || 'Invitado';
+      const myAvatar = setupPlayers[0]?.avatar || '🎯';
+      network!.broadcast({
+        type: 'PLAYER_JOIN',
+        player: { name: myName, avatar: myAvatar },
+        clientId: myClientId,
+      });
+
+      const addBtn = document.getElementById('btn-add-player') as HTMLButtonElement;
+      if (addBtn) addBtn.style.display = 'none';
+      const startBtn = document.getElementById('btn-start-game') as HTMLButtonElement;
+      if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.textContent = '⏳ Esperando que el anfitrión inicie...';
+      }
     }, (err) => {
       document.getElementById('network-status')!.textContent = `Error: ${err.message}`;
     });
@@ -411,13 +463,18 @@ function initSetupListeners(): void {
     setupNetworkHandlers();
   });
   
-  // Auto-join from URL
+  // Auto-join from URL parameter (e.g. ?room=ABCD)
   const urlParams = new URLSearchParams(window.location.search);
-  const room = urlParams.get('room');
+  const room = urlParams.get('room')?.trim().toUpperCase();
   if (room) {
-    (document.getElementById('input-room-code') as HTMLInputElement).value = room;
-    // Auto click join after a small delay
-    setTimeout(() => document.getElementById('btn-join-game')!.click(), 500);
+    const codeInput = document.getElementById('input-room-code') as HTMLInputElement;
+    if (codeInput) {
+      codeInput.value = room;
+    }
+    // Auto click join after initialization
+    setTimeout(() => {
+      document.getElementById('btn-join-game')?.click();
+    }, 600);
   }
 }
 
@@ -427,24 +484,58 @@ function setupNetworkHandlers() {
     switch (msg.type) {
       case 'PLAYER_JOIN':
         if (isHost) {
-          // Add player to local setup
-          setupPlayers.push({ name: msg.player.name, avatar: msg.player.avatar });
-          renderSetupScreen();
-          // We could send state back, but we'll just wait for host to click start
+          let client = lobbyClients.find((c) => c.clientId === msg.clientId);
+          if (!client) {
+            const assignedId = lobbyClients.length + 1;
+            client = {
+              clientId: msg.clientId,
+              name: msg.player.name || `Jugador ${assignedId}`,
+              avatar: msg.player.avatar || AVATARS[(assignedId - 1) % AVATARS.length],
+              playerId: assignedId,
+            };
+            lobbyClients.push(client);
+            setupPlayers.push({ name: client.name, avatar: client.avatar });
+            renderSetupScreen();
+          }
+          // Broadcast full synchronized lobby to everyone
+          network?.broadcast({
+            type: 'LOBBY_SYNC',
+            clients: lobbyClients,
+            players: setupPlayers,
+          });
+          document.getElementById('network-status')!.textContent =
+            `Jugadores conectados: ${lobbyClients.length} (${lobbyClients.map(c => c.name).join(', ')})`;
         }
         break;
+
+      case 'LOBBY_SYNC':
+        setupPlayers = msg.players;
+        renderSetupScreen();
+        const me = msg.clients.find((c) => c.clientId === myClientId);
+        if (me) {
+          myPlayerId = me.playerId;
+          document.getElementById('network-status')!.textContent =
+            `Conectado como ${me.avatar} ${me.name} (Jugador ${me.playerId}). Esperando al anfitrión...`;
+        }
+        const addBtn = document.getElementById('btn-add-player') as HTMLButtonElement;
+        if (addBtn) addBtn.style.display = 'none';
+        break;
+
+      case 'GAME_START':
       case 'STATE_SYNC':
-        // Overwrite local engine state entirely
         if (!engine) {
-          // Client initializes engine if not present
-          engine = new GameEngine(msg.state.players);
-          transitionToGameScreen();
+          initClientGame(msg.state);
+        } else {
+          engine.restoreState(msg.state);
+          syncUI();
         }
-        engine.restoreState(msg.state);
-        syncUI();
         break;
+
+      case 'GAME_EVENT':
+        handleGameEvent(msg.event);
+        break;
+
       case 'REMOTE_ACTION':
-        // A client requested an action
         if (isHost && engine) {
           handleRemoteAction(msg.action, msg.payload);
         }
@@ -461,7 +552,12 @@ function handleRemoteAction(action: string, payload: any) {
     else if (action === 'keep') engine!.toggleKeep(payload.dieId);
     else if (action === 'flip') engine!.flipDie(payload.dieId);
     else if (action === 'unflip') engine!.unflipDie(payload.dieId);
-    else if (action === 'score') engine!.scoreCategory(payload.cat);
+    else if (action === 'score') {
+      if (engine!.getState().turnPhase === 'VOLTEO_OPTIONAL') {
+        engine!.skipOptionalFlip();
+      }
+      engine!.scoreCategory(payload.cat);
+    }
     else if (action === 'demano') engine!.standDeMano();
     else if (action === 'skipflip') engine!.skipOptionalFlip();
     
@@ -492,6 +588,15 @@ function sendRemoteAction(action: string, payload: any = {}) {
 // Game initialization
 // ---------------------------------------------------------------------------
 
+function initClientGame(state: GameState): void {
+  initAudio();
+  engine = new GameEngine(state.players);
+  engine.restoreState(state);
+  setupEngineEvents();
+  transitionToGameScreen();
+  syncUI();
+}
+
 function startGame(): void {
   initAudio();
   // Create engine with configured players
@@ -500,60 +605,80 @@ function startGame(): void {
   );
 
   engine = new GameEngine(players);
-  
-  // Track whether La Dormida triggered to avoid double game-over screen
-  let dormidaFired = false;
-
-  // Subscribe to engine events
-  engine.on((event) => {
-    const state = engine!.getState();
-    switch (event.type) {
-      case 'DICE_ROLLED':
-        playShake();
-        animateCubilete();
-        diceArea?.animateRoll(event.dice);
-        break;
-      case 'DIE_FLIPPED':
-        playClick();
-        diceArea?.animateFlip(event.dieId);
-        toast.show(`↕ ${state.players[state.activePlayerIndex].name} flipped a die`);
-        break;
-      case 'DE_MANO_STOOD':
-        toast.show(currentLang === 'es'
-          ? '✋ De Mano — ¡+5 bono en Juegos!'
-          : '✋ Standing De Mano — +5 bonus for Combinations!');
-        break;
-      case 'CATEGORY_SCORED':
-        playScore();
-        toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano!)' : ''}`);
-        break;
-      case 'CATEGORY_SCRATCHED':
-        playClick();
-        toast.show(`✕ ${event.category.toUpperCase()} ${currentLang === 'es' ? 'tachado' : 'scratched'}`);
-        break;
-      case 'DORMIDA':
-        playWin();
-        dormidaFired = true;
-        showDormidaOverlay(state);
-        break;
-      case 'TURN_CHANGED':
-        showPassDeviceOverlay(state);
-        break;
-      case 'GAME_OVER':
-        if (!dormidaFired) {
-          playWin();
-          setTimeout(() => showGameOver(event.winnerId, event.scores, state), 500);
-        }
-        break;
-    }
-    syncUI();
-  });
+  setupEngineEvents();
 
   if (isHost && network) {
+    network.broadcast({ type: 'GAME_START', state: engine.getState() });
     broadcastState();
   }
 
   transitionToGameScreen();
+}
+
+function setupEngineEvents(): void {
+  if (!engine) return;
+  dormidaFired = false;
+
+  engine.on((event) => {
+    if (isHost && network) {
+      network.broadcast({ type: 'GAME_EVENT', event });
+    }
+    handleGameEvent(event);
+    syncUI();
+  });
+}
+
+function handleGameEvent(event: GameEvent): void {
+  if (!engine) return;
+  const state = engine.getState();
+  switch (event.type) {
+    case 'DICE_ROLLED':
+      playShake();
+      animateCubilete();
+      diceArea?.animateRoll(event.dice);
+      break;
+    case 'DIE_FLIPPED':
+      playClick();
+      diceArea?.animateFlip(event.dieId);
+      toast.show(`↕ ${state.players[state.activePlayerIndex]?.name || ''} ${currentLang === 'es' ? 'volteó un dado' : 'flipped a die'}`);
+      break;
+    case 'DE_MANO_STOOD':
+      toast.show(currentLang === 'es'
+        ? '✋ De Mano — ¡+5 bono en Juegos!'
+        : '✋ Standing De Mano — +5 bonus for Combinations!');
+      break;
+    case 'CATEGORY_SCORED':
+      playScore();
+      toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano!)' : ''}`);
+      break;
+    case 'CATEGORY_SCRATCHED':
+      playClick();
+      toast.show(`✕ ${event.category.toUpperCase()} ${currentLang === 'es' ? 'tachado' : 'scratched'}`);
+      break;
+    case 'DORMIDA':
+      playWin();
+      dormidaFired = true;
+      showDormidaOverlay(state);
+      break;
+    case 'TURN_CHANGED':
+      if (!network) {
+        showPassDeviceOverlay(state);
+      } else {
+        const nextPlayer = state.players[state.activePlayerIndex];
+        if (nextPlayer.id === myPlayerId) {
+          toast.show(currentLang === 'es' ? '🎲 ¡Es tu turno!' : "🎲 It's your turn!");
+        } else {
+          toast.show(currentLang === 'es' ? `🎲 Turno de ${nextPlayer.name}` : `🎲 ${nextPlayer.name}'s turn`);
+        }
+      }
+      break;
+    case 'GAME_OVER':
+      if (!dormidaFired) {
+        playWin();
+        setTimeout(() => showGameOver(event.winnerId, event.scores, state), 500);
+      }
+      break;
+  }
 }
 
 function transitionToGameScreen(): void {

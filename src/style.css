@@ -339,6 +339,24 @@ body {
   color: var(--gold-light);
 }
 
+.btn-copy-link {
+  background: rgba(212,160,23,0.2);
+  border: 1px solid var(--gold-mid);
+  color: var(--gold-light);
+  border-radius: var(--r-sm);
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.btn-copy-link:hover {
+  background: rgba(212,160,23,0.35);
+  box-shadow: 0 0 8px rgba(212,160,23,0.3);
+}
+
 .room-code-display strong {
   font-size: 1.5rem;
   color: #fff;

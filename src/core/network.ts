@@ -1,11 +1,20 @@
 import Peer, { type DataConnection } from 'peerjs';
-import type { GameEvent, GameState, Player } from './types';
+import type { GameEvent, GameState } from './types';
 
 // The events that can be sent over the network
+export interface LobbyClient {
+  clientId: string;
+  name: string;
+  avatar: string;
+  playerId: number;
+}
+
 export type NetworkMessage =
   | { type: 'STATE_SYNC'; state: GameState }
+  | { type: 'GAME_START'; state: GameState }
   | { type: 'GAME_EVENT'; event: GameEvent }
-  | { type: 'PLAYER_JOIN'; player: Player }
+  | { type: 'PLAYER_JOIN'; player: { name: string; avatar: string }; clientId: string }
+  | { type: 'LOBBY_SYNC'; clients: LobbyClient[]; players: Array<{ name: string; avatar: string }> }
   | { type: 'MATCH_RESET' }
   | { type: 'REMOTE_ACTION'; action: string; payload: any };
 
@@ -33,16 +42,16 @@ export class PeerAdapter implements NetworkAdapter {
     const peerId = isHost ? `cacho-alalay-${roomCode}` : undefined;
     
     if (peerId) {
-      this.peer = new Peer(peerId, { debug: 2 });
+      this.peer = new Peer(peerId, { debug: 1 });
     } else {
-      this.peer = new Peer({ debug: 2 });
+      this.peer = new Peer({ debug: 1 });
     }
 
     this.peer.on('open', (id) => {
       console.log('PeerJS connected with ID:', id);
       if (!isHost) {
         // Client connects to host
-        const conn = this.peer!.connect(`cacho-alalay-${roomCode}`);
+        const conn = this.peer!.connect(`cacho-alalay-${roomCode}`, { reliable: true });
         conn.on('open', () => {
           this.hostConnection = conn;
           this.setupConnection(conn);
