@@ -22,7 +22,16 @@ import { Scoreboard } from './ui/components/scoreboard';
 import { ActionBar } from './ui/components/actionbar';
 import { PlayerBar } from './ui/components/playerbar';
 import { Toast } from './ui/components/toast';
+import { HowToPlayModal } from './ui/components/howtoplay';
+import { VolteoAssistant } from './ui/components/volteo_assistant';
+import { Leaderboard } from './ui/components/leaderboard';
 import { fireConfetti } from './ui/animations/confetti';
+
+// ---------------------------------------------------------------------------
+// Language state (shared globally so scoreboard / hints follow it)
+// ---------------------------------------------------------------------------
+export type Lang = 'es' | 'en';
+let currentLang: Lang = 'es';
 
 // ---------------------------------------------------------------------------
 // Available avatars
@@ -57,6 +66,9 @@ let scoreboard: Scoreboard | null = null;
 let actionBar: ActionBar | null = null;
 let playerBar: PlayerBar | null = null;
 const toast = new Toast();
+const howToPlay = new HowToPlayModal();
+const leaderboard = new Leaderboard();
+let volteoAssistant: VolteoAssistant | null = null;
 
 // Flip mode: during volteo phases, clicking a die flips it instead of keeping it
 let flipMode = false;
@@ -75,7 +87,13 @@ function buildHTML(): void {
       </header>
 
       <div class="setup-card">
-        <h2>¿Quiénes juegan?</h2>
+        <div class="setup-actions-row">
+          <h2>¿Quiénes juegan?</h2>
+          <div class="setup-meta-btns">
+            <button id="btn-lang-toggle" class="btn-meta" title="Switch language">🇧🇴 ES</button>
+            <button id="btn-how-to-play" class="btn-meta" title="How to Play">📖 Reglas</button>
+          </div>
+        </div>
         <div id="player-list" class="player-list"></div>
         <button id="btn-add-player" class="btn-add-player">＋ Add Player</button>
         <button id="btn-start-game" class="btn-start-game">🎲 Start Game</button>
@@ -90,15 +108,27 @@ function buildHTML(): void {
 
         <!-- Main game area -->
         <div class="game-main">
-          <!-- Phase banner -->
+          <!-- Phase banner with how-to & lang buttons -->
           <div id="phase-banner" class="phase-banner">
-            <div id="phase-player" class="phase-player"></div>
-            <div id="phase-label" class="phase-label"></div>
-            <div id="phase-hint"  class="phase-hint"></div>
+            <div class="phase-banner-inner">
+              <div id="phase-player" class="phase-player"></div>
+              <div id="phase-label"  class="phase-label"></div>
+              <div id="phase-hint"   class="phase-hint"></div>
+            </div>
+            <div class="phase-meta-btns">
+              <button id="btn-game-lang" class="btn-meta btn-meta-sm" title="Switch language">🇧🇴</button>
+              <button id="btn-game-htp"  class="btn-meta btn-meta-sm" title="How to Play">📖</button>
+            </div>
           </div>
 
-          <!-- Dice -->
+          <!-- Cubilete shake zone + Dice -->
+          <div id="cubilete-zone" class="cubilete-zone">
+            <div id="cubilete" class="cubilete" title="El Cubilete">🪣</div>
+          </div>
           <div id="dice-mount"></div>
+
+          <!-- Volteo Assistant -->
+          <div id="va-mount"></div>
 
           <!-- Scoreboard -->
           <div id="scoreboard-mount"></div>
@@ -119,6 +149,7 @@ function buildHTML(): void {
         <div id="winner-name"  class="winner-name"></div>
         <div id="winner-sub"   class="winner-sub">¡Ganador!</div>
         <div id="final-scores" class="final-scores"></div>
+        <button id="btn-see-leaderboard" class="btn-see-leaderboard">📊 Ver Tabla de Resultados</button>
         <button id="btn-play-again" class="btn-play-again">🎲 Play Again</button>
       </div>
     </div>
@@ -155,6 +186,25 @@ function showScreen(id: ScreenId): void {
   document.querySelectorAll<HTMLElement>('.screen').forEach((el) => el.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   window.scrollTo(0, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Language toggle helpers
+// ---------------------------------------------------------------------------
+
+function applyLangLabel(): void {
+  const label = currentLang === 'es' ? '🇧🇴 ES' : '🇺🇸 EN';
+  const labelSm = currentLang === 'es' ? '🇧🇴' : '🇺🇸';
+  const htpLabel = currentLang === 'es' ? '📖 Reglas' : '📖 Rules';
+  document.getElementById('btn-lang-toggle')?.textContent && (document.getElementById('btn-lang-toggle')!.textContent = label);
+  document.getElementById('btn-game-lang')?.textContent && (document.getElementById('btn-game-lang')!.textContent = labelSm);
+  document.getElementById('btn-how-to-play')?.textContent && (document.getElementById('btn-how-to-play')!.textContent = htpLabel);
+}
+
+function toggleLang(): void {
+  currentLang = currentLang === 'es' ? 'en' : 'es';
+  applyLangLabel();
+  if (engine) syncUI();
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +306,9 @@ function initSetupListeners(): void {
   document.getElementById('btn-start-game')!.addEventListener('click', () => {
     startGame();
   });
+
+  document.getElementById('btn-lang-toggle')!.addEventListener('click', toggleLang);
+  document.getElementById('btn-how-to-play')!.addEventListener('click', () => howToPlay.show());
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +351,17 @@ function startGame(): void {
     onSkipFlip: handleSkipFlip,
   });
 
+  // Volteo assistant
+  const vaMount = document.getElementById('va-mount')!;
+  vaMount.innerHTML = '';
+  const vaContainer = document.createElement('div');
+  vaMount.appendChild(vaContainer);
+  volteoAssistant = new VolteoAssistant(vaContainer);
+
+  // Game buttons in game screen
+  document.getElementById('btn-game-lang')!.addEventListener('click', toggleLang);
+  document.getElementById('btn-game-htp')!.addEventListener('click', () => howToPlay.show());
+
   // Track whether La Dormida triggered to avoid double game-over screen
   let dormidaFired = false;
 
@@ -306,6 +370,7 @@ function startGame(): void {
     const state = engine!.getState();
     switch (event.type) {
       case 'DICE_ROLLED':
+        animateCubilete();
         diceArea?.animateRoll(event.dice);
         break;
       case 'DIE_FLIPPED':
@@ -313,13 +378,15 @@ function startGame(): void {
         toast.show(`↕ ${state.players[state.activePlayerIndex].name} flipped a die`);
         break;
       case 'DE_MANO_STOOD':
-        toast.show('✋ Standing De Mano — +5 bonus for Juegos!');
+        toast.show(currentLang === 'es'
+          ? '✋ De Mano — ¡+5 bono en Juegos!'
+          : '✋ Standing De Mano — +5 bonus for Combinations!');
         break;
       case 'CATEGORY_SCORED':
-        toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano bonus!)' : ''}`);
+        toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano!)' : ''}`);
         break;
       case 'CATEGORY_SCRATCHED':
-        toast.show(`✕ ${event.category.toUpperCase()} scratched (Tachar)`);
+        toast.show(`✕ ${event.category.toUpperCase()} ${currentLang === 'es' ? 'tachado' : 'scratched'}`);
         break;
       case 'DORMIDA':
         dormidaFired = true;
@@ -330,7 +397,6 @@ function startGame(): void {
         break;
       case 'GAME_OVER':
         if (!dormidaFired) {
-          // Small delay to let scoring toast clear
           setTimeout(() => showGameOver(event.winnerId, event.scores, state), 500);
         }
         break;
@@ -341,6 +407,19 @@ function startGame(): void {
   flipMode = false;
   showScreen('screen-game');
   syncUI();
+}
+
+// ---------------------------------------------------------------------------
+// Cubilete shake animation
+// ---------------------------------------------------------------------------
+
+function animateCubilete(): void {
+  const el = document.getElementById('cubilete');
+  if (!el) return;
+  el.classList.remove('cubilete-shake');
+  void el.offsetWidth; // reflow
+  el.classList.add('cubilete-shake');
+  el.addEventListener('animationend', () => el.classList.remove('cubilete-shake'), { once: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -375,12 +454,44 @@ function syncUI(): void {
   }
 
   // Scoreboard
-  scoreboard?.render(state.players, isScoring, potentials, state.activePlayerIndex);
+  scoreboard?.render(state.players, isScoring, potentials, state.activePlayerIndex, currentLang);
+
+  // Volteo Assistant
+  const isVolteo = phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL';
+  if (isVolteo) {
+    const openCats = ALL_CATEGORIES.filter((c) => activePlayer.scores[c] === undefined);
+    volteoAssistant?.render(
+      state.dice,
+      state.flippedDieIds,
+      openCats,
+      state.isDeMano,
+      true,
+    );
+  } else {
+    volteoAssistant?.render(state.dice, state.flippedDieIds, [], state.isDeMano, false);
+  }
 
   // Action bar
   flipMode = phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL';
   actionBar?.render(phase, flipMode);
 }
+
+const PHASE_LABELS: Record<string, { es: { label: string; hint: string }; en: { label: string; hint: string } }> = {
+  INIT:             { es: { label: '🎲 ¡Lanza los dados!',          hint: 'Presiona Lanzar para empezar tu turno' },
+                      en: { label: '🎲 Roll the dice!',             hint: 'Press Roll Dice to begin your turn' } },
+  ROLLED_1:         { es: { label: '🤔 Elige tu jugada',            hint: 'Guarda dados, estate De Mano, o lanza de nuevo' },
+                      en: { label: '🤔 Choose your move',           hint: 'Keep dice, Stand De Mano, or Roll Again' } },
+  VOLTEO_MANDATORY: { es: { label: '↕ El Volteo — Voltea un dado',  hint: 'Debes voltear exactamente un dado a su cara opuesta' },
+                      en: { label: '↕ El Volteo — Flip a die',      hint: 'You must flip exactly one die to its opposite face' } },
+  VOLTEO_OPTIONAL:  { es: { label: '↕ El Volteo — Opcional',        hint: 'Voltea un dado más, o Salta al puntaje' },
+                      en: { label: '↕ El Volteo — Optional flip',   hint: 'Flip one more die, or Skip to scoring' } },
+  SCORING:          { es: { label: '📝 Elige una categoría',         hint: 'Haz clic en la Taquilla para puntuar' },
+                      en: { label: '📝 Choose a Taquilla category',  hint: 'Click a row in the scoreboard' } },
+  TURN_COMPLETE:    { es: { label: '✓ Turno completo',               hint: 'Pasando al siguiente jugador...' },
+                      en: { label: '✓ Turn complete',                hint: 'Passing to next player...' } },
+  DORMIDA_WIN:      { es: { label: '😴 ¡La Dormida!',               hint: '¡Cinco iguales en el primer lanzamiento!' },
+                      en: { label: '😴 ¡La Dormida!',               hint: 'Five of a kind on Roll 1 — instant win!' } },
+};
 
 function updatePhaseBanner(state: GameState): void {
   const phase = state.turnPhase;
@@ -390,21 +501,15 @@ function updatePhaseBanner(state: GameState): void {
   const labelEl   = document.getElementById('phase-label')!;
   const hintEl    = document.getElementById('phase-hint')!;
 
-  playerEl.textContent = `${activePlayer.avatar} ${activePlayer.name}'s Turn`;
+  playerEl.textContent = `${activePlayer.avatar} ${activePlayer.name}${currentLang === 'es' ? '' : "'s Turn"}`;
 
-  const labels: Partial<Record<typeof phase, { label: string; hint: string }>> = {
-    INIT:             { label: '🎲 Roll the dice!',             hint: 'Press Roll Dice to begin your turn' },
-    ROLLED_1:         { label: '🤔 Choose your move',           hint: 'Keep dice, Stand De Mano, or Roll Again' },
-    VOLTEO_MANDATORY: { label: '↕ El Volteo — Flip a die',      hint: 'You must flip exactly one die to its opposite face' },
-    VOLTEO_OPTIONAL:  { label: '↕ El Volteo — Optional flip',   hint: 'Flip one more die, or Skip to scoring' },
-    SCORING:          { label: '📝 Choose a Taquilla category',  hint: 'Click a row in the scoreboard' },
-    TURN_COMPLETE:    { label: '✓ Turn complete',                hint: 'Passing to next player...' },
-    DORMIDA_WIN:      { label: '😴 ¡La Dormida!',               hint: 'Five of a kind on Roll 1 — instant win!' },
-  };
-
-  const info = labels[phase] ?? { label: phase, hint: '' };
+  const info = PHASE_LABELS[phase]?.[currentLang] ?? { label: phase, hint: '' };
   labelEl.textContent = info.label;
-  hintEl.textContent  = state.isDeMano ? '✋ De Mano — eligible for +5 bonus' : info.hint;
+
+  const deManoHint = currentLang === 'es'
+    ? '✋ De Mano — elegible para +5 bono'
+    : '✋ De Mano — eligible for +5 bonus';
+  hintEl.textContent = state.isDeMano ? deManoHint : info.hint;
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +564,7 @@ function handleCategoryClick(cat: Category): void {
 
   const activePlayer = state.players[state.activePlayerIndex];
   if (activePlayer.scores[cat] !== undefined) {
-    toast.show('⚠️ That category is already filled!');
+    toast.show(currentLang === 'es' ? '⚠️ ¡Esa categoría ya está llena!' : '⚠️ That category is already filled!');
     return;
   }
 
@@ -468,9 +573,10 @@ function handleCategoryClick(cat: Category): void {
 
   if (pts === 0) {
     // Confirm scratch (Tachar)
-    const confirmed = window.confirm(
-      `The dice don't match "${cat}". Score 0 (Tachar ✕)?`,
-    );
+    const msg = currentLang === 'es'
+      ? `Los dados no coinciden con "${cat}". ¿Puntuar 0 (Tachar ✕)?`
+      : `The dice don't match "${cat}". Score 0 (Tachar ✕)?`;
+    const confirmed = window.confirm(msg);
     if (!confirmed) return;
   }
 
@@ -492,7 +598,9 @@ function showPassDeviceOverlay(state: GameState): void {
 
   const nextPlayer = state.players[state.activePlayerIndex];
   titleEl.textContent = `${nextPlayer.avatar} ${nextPlayer.name}`;
-  subEl.textContent   = `It's your turn! Pass the device and press Ready.`;
+  subEl.textContent   = currentLang === 'es'
+    ? `¡Es tu turno! Pasa el dispositivo y presiona Listo.`
+    : `It's your turn! Pass the device and press Ready.`;
 
   overlay.classList.remove('hidden');
 
@@ -507,7 +615,9 @@ function showDormidaOverlay(state: GameState): void {
   const subEl   = document.getElementById('overlay-dormida-subtitle')!;
   const winner  = state.players[state.activePlayerIndex];
 
-  subEl.textContent = `${winner.avatar} ${winner.name} rolled Five of a Kind on the first roll! Instant victory!`;
+  subEl.textContent = currentLang === 'es'
+    ? `${winner.avatar} ${winner.name} sacó Cinco Iguales en el primer lanzamiento. ¡Victoria instantánea!`
+    : `${winner.avatar} ${winner.name} rolled Five of a Kind on the first roll! Instant victory!`;
   overlay.classList.remove('hidden');
   fireConfetti(120);
 
@@ -536,6 +646,7 @@ function showGameOver(
 
   const winner = state.players.find((p) => p.id === winnerId)!;
   document.getElementById('winner-name')!.textContent = `${winner.avatar} ${winner.name}`;
+  document.getElementById('winner-sub')!.textContent = currentLang === 'es' ? '¡Ganador!' : 'Winner!';
 
   const finalScoresEl = document.getElementById('final-scores')!;
   finalScoresEl.innerHTML = '';
@@ -560,10 +671,20 @@ function showGameOver(
     finalScoresEl.appendChild(row);
   }
 
+  // See Leaderboard button
+  document.getElementById('btn-see-leaderboard')!.onclick = () => {
+    leaderboard.show(state.players, winnerId);
+  };
+
   document.getElementById('btn-play-again')!.onclick = () => {
-    // Reset to setup with same players
     showScreen('screen-setup');
   };
+
+  // Also allow play again from leaderboard
+  leaderboard.onPlayAgain(() => {
+    leaderboard.hide();
+    showScreen('screen-setup');
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -68,15 +68,15 @@ This document tracks all features, architectural milestones, and implementation 
 ## 👧 Phase 3: Kid-Friendly & Educational Mode
 *Features specifically designed to help kids understand math, probability, and Bolivian culture.*
 
-- [ ] **Interactive Visual Guide / Hint System:**
-  - [ ] Dynamic score previews: Hover/tap dice to see potential score in each open category
-  - [ ] "Volteo Assistant": Highlights which die flip unlocks an Escalera or Full House
+- [x] **Interactive Visual Guide / Hint System:**
+  - [x] Dynamic score previews: Hover/tap dice to see potential score in each open category
+  - [x] "Volteo Assistant": Highlights which die flip unlocks an Escalera or Full House (`src/ui/components/volteo_assistant.ts`)
   - [ ] Probability tips (e.g. "You have a 1 in 6 chance to get Senas!")
-- [ ] **Bilingual Language Toggle (EN / ES):**
-  - [ ] Display authentic Bolivian vernacular (*Balas, Tontos, Trenes, Cuadras, Quinas, Senas, El Volteo, De Mano, La Dormida*)
-  - [ ] Toggleable explanatory subtitles for kids and English-speaking friends
-- [ ] **Interactive Rules & Tutorial Walkthrough:**
-  - [ ] Illustrated "How to Play" modal with visual examples
+- [x] **Bilingual Language Toggle (EN / ES):**
+  - [x] Display authentic Bolivian vernacular (*Balas, Tontos, Trenes, Cuadras, Quinas, Senas, El Volteo, De Mano, La Dormida*)
+  - [x] Toggleable language button (🇧🇴 ES / 🇺🇸 EN) on setup screen and in-game header — updates scoreboard, banners, overlays, toasts
+- [x] **Interactive Rules & Tutorial Walkthrough:**
+  - [x] Illustrated "How to Play" 8-slide modal with icons, examples, bilingual toggle (`src/ui/components/howtoplay.ts`)
   - [ ] Kid-friendly "Quick Practice" mode (play a mock turn with step-by-step instructions)
 
 ---
@@ -84,9 +84,9 @@ This document tracks all features, architectural milestones, and implementation 
 ## 🪑 Phase 4: Local Pass & Play Mode (Same Device)
 *Optimized for a family sitting around an iPad, tablet, or laptop.*
 
-- [>] **Tactile UI & Table Experience:**
-  - [ ] 3D dice with rolling physics & shadow animations
-  - [ ] Green felt tavern surface with wooden cup (*cubilete*) shake animation
+- [x] **Tactile UI & Table Experience:**
+  - [x] 3D dice with rolling physics & shadow animations (CSS `rollDie3D` / `flipDie3D` keyframes)
+  - [x] Green felt tavern surface with wooden cup (*cubilete*) shake animation (`.cubilete-shake` keyframe)
   - [x] Parchment-style traditional 3×3 *Taquilla* scoreboard (`src/ui/components/scoreboard.ts`)
 - [x] **Player Management:**
   - [x] Add 2 to 6 players
@@ -94,10 +94,10 @@ This document tracks all features, architectural milestones, and implementation 
 - [x] **Turn Handover Screen:**
   - [x] "Pass the device to [Next Player]" overlay with friendly transition (`src/main.ts` → `showPassDeviceOverlay`)
   - [x] Clear turn & roll indicator (Roll 1 of 2, Flip 1 of 2)
-- [>] **Celebration & Victory Animations:**
+- [x] **Celebration & Victory Animations:**
   - [x] Confetti effect on match win (`src/ui/animations/confetti.ts`)
   - [x] Special dramatic overlay and animation for *La Dormida* (`#overlay-dormida`)
-  - [ ] Match leaderboard and score breakdown
+  - [x] Match leaderboard and score breakdown (`src/ui/components/leaderboard.ts`)
 
 ---
 
@@ -152,4 +152,6 @@ This document tracks all features, architectural milestones, and implementation 
 * **2026-09-26 (Session 1):** Reviewed `docs/` folder (HTML prototype, English rules guide, cultural background). Established project `README.md` and detailed `PROJECT_PLAN.md`.
 * **2026-09-26 (Session 2):** ✅ Phase 1 complete — Vite + TypeScript scaffold (`npm run dev/build/test`), Vitest, `.gitignore`, full `src/` directory structure, `NetworkAdapter` interface, `LocalAdapter`.
   ✅ Phase 2 complete — `src/core/types.ts` (typed dice/state/events), `src/core/volteo.ts` (El Volteo logic), `src/core/scoring.ts` (all 11 Taquilla categories), `src/core/engine.ts` (full turn state machine with La Dormida). **79/79 unit tests passing.**
-* **2026-09-27 (Session 3):** 🔄 Phase 4 partially complete — Player management (2–6 players, avatars, names), Turn Handover overlay, parchment Taquilla scoreboard, confetti win animation, and La Dormida overlay all implemented. Remaining: 3D dice physics, *cubilete* shake animation, match leaderboard/score breakdown screen.
+* **2026-09-27 (Session 3):** 🔄 Phase 4 partially reviewed — Player management, turn handover, scoreboard, confetti, La Dormida overlay confirmed done.
+* **2026-09-27 (Session 4):** ✅ Phase 3 mostly complete — Bilingual EN/ES toggle (scoreboard, banners, overlays, toasts), illustrated 8-slide "How to Play" modal (`howtoplay.ts`), Volteo Assistant with combo-unlock hints (`volteo_assistant.ts`), dynamic score previews already in place.
+  ✅ Phase 4 complete — 3D dice physics (`rollDie3D` CSS), *cubilete* shake animation, match leaderboard with podium + per-category breakdown (`leaderboard.ts`). **Build clean, 0 TypeScript errors.**

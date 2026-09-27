@@ -333,15 +333,14 @@ body {
   gap: 24px;
 }
 
-/* ─── Phase Banner ──────────────────────────────────────────────────── */
+/* ─── Phase Banner — flex layout defined lower in file ─────────────── */
 .phase-banner {
-  text-align: center;
   padding: 10px 24px;
   background: rgba(0,0,0,0.3);
   border-radius: var(--r-lg);
   border: 1px solid rgba(212,160,23,0.2);
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
 }
 
 .phase-player {
@@ -433,24 +432,9 @@ body {
 }
 .die.locked:hover { transform: none; box-shadow: var(--shadow-dice); }
 
-/* Rolling animation */
-@keyframes rollDie {
-  0%   { transform: rotateX(0deg) rotateY(0deg) scale(1); }
-  20%  { transform: rotateX(180deg) rotateY(90deg) scale(0.85); }
-  50%  { transform: rotateX(360deg) rotateY(200deg) scale(0.9); }
-  80%  { transform: rotateX(300deg) rotateY(320deg) scale(0.95); }
-  100% { transform: rotateX(360deg) rotateY(360deg) scale(1); }
-}
+/* Rolling animation — see rollDie3D at bottom of file */
 
-.die.rolling { animation: rollDie 0.55s ease-out; }
-
-/* Volteo flip animation */
-@keyframes flipDie {
-  0%   { transform: rotateY(0deg) scale(1); }
-  40%  { transform: rotateY(90deg) scale(0.75); }
-  100% { transform: rotateY(0deg) scale(1); }
-}
-.die.volteo-anim { animation: flipDie 0.4s ease-in-out; }
+/* Volteo flip animation — see flipDie3D at bottom of file */
 
 /* Die badge label below */
 .die-badge {
@@ -892,3 +876,444 @@ body {
   .btn { padding: 10px 16px; font-size: 0.88rem; }
   .setup-card { padding: 20px 16px; }
 }
+
+/* ─── 3D enhanced dice roll ─────────────────────────────────────────── */
+/* Richer physics: translate + rotateX + rotateY with subtle bounce */
+@keyframes rollDie3D {
+  0%   { transform: perspective(300px) rotateX(0deg)   rotateY(0deg)   translateY(0px)   scale(1); }
+  15%  { transform: perspective(300px) rotateX(-30deg) rotateY(60deg)  translateY(-14px) scale(0.88); }
+  35%  { transform: perspective(300px) rotateX(200deg) rotateY(140deg) translateY(-8px)  scale(0.84); }
+  55%  { transform: perspective(300px) rotateX(300deg) rotateY(240deg) translateY(-4px)  scale(0.92); }
+  75%  { transform: perspective(300px) rotateX(330deg) rotateY(310deg) translateY(-2px)  scale(0.97); }
+  88%  { transform: perspective(300px) rotateX(355deg) rotateY(350deg) translateY(2px)   scale(1.02); }
+  100% { transform: perspective(300px) rotateX(360deg) rotateY(360deg) translateY(0px)   scale(1); }
+}
+
+.die.rolling {
+  animation: rollDie3D 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* Volteo flip — 3D card flip */
+@keyframes flipDie3D {
+  0%   { transform: perspective(300px) rotateY(0deg)   scale(1); }
+  40%  { transform: perspective(300px) rotateY(90deg)  scale(0.8); box-shadow: 0 20px 40px rgba(0,0,0,0.75); }
+  100% { transform: perspective(300px) rotateY(0deg)   scale(1); }
+}
+.die.volteo-anim { animation: flipDie3D 0.45s ease-in-out; }
+
+/* ─── Cubilete (wooden cup) ─────────────────────────────────────────── */
+.cubilete-zone {
+  display: flex;
+  justify-content: center;
+  height: 64px;
+  margin-bottom: -8px;
+  perspective: 400px;
+}
+
+.cubilete {
+  font-size: 3rem;
+  line-height: 1;
+  display: inline-block;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+  cursor: default;
+  user-select: none;
+  transform-origin: center bottom;
+}
+
+@keyframes cubileteShake {
+  0%   { transform: rotate(0deg)   translateY(0px)   scale(1); }
+  10%  { transform: rotate(-18deg) translateY(-6px)  scale(1.08); }
+  22%  { transform: rotate(16deg)  translateY(-12px) scale(1.12); }
+  34%  { transform: rotate(-20deg) translateY(-8px)  scale(1.1); }
+  46%  { transform: rotate(18deg)  translateY(-10px) scale(1.08); }
+  58%  { transform: rotate(-14deg) translateY(-6px)  scale(1.05); }
+  70%  { transform: rotate(10deg)  translateY(-3px)  scale(1.03); }
+  82%  { transform: rotate(-5deg)  translateY(-1px)  scale(1.01); }
+  100% { transform: rotate(0deg)   translateY(0px)   scale(1); }
+}
+
+.cubilete.cubilete-shake {
+  animation: cubileteShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* ─── Setup meta buttons (lang / how-to-play) ───────────────────────── */
+.setup-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+.setup-actions-row h2 {
+  margin-bottom: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--gold-light);
+}
+.setup-meta-btns {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-meta {
+  background: rgba(212,160,23,0.1);
+  border: 1px solid rgba(212,160,23,0.35);
+  border-radius: var(--r-md);
+  color: var(--gold-light);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-meta:hover {
+  background: rgba(212,160,23,0.22);
+  border-color: var(--gold-mid);
+  transform: translateY(-1px);
+}
+.btn-meta-sm {
+  padding: 5px 9px;
+  font-size: 1rem;
+}
+
+/* Phase banner layout update for meta buttons */
+.phase-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.phase-banner-inner { flex: 1; text-align: center; }
+.phase-meta-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ─── How To Play modal ─────────────────────────────────────────────── */
+.htp-overlay { z-index: 150; }
+
+.htp-card {
+  background: rgba(13,40,24,0.98);
+  border: 1px solid rgba(212,160,23,0.35);
+  border-radius: var(--r-xl);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: var(--shadow-card), var(--glow-gold);
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.htp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid rgba(212,160,23,0.15);
+}
+.htp-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.htp-logo {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--gold-light);
+}
+.htp-lang-btn {
+  background: rgba(212,160,23,0.12);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: var(--r-sm);
+  color: var(--gold-light);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.htp-lang-btn:hover { background: rgba(212,160,23,0.25); }
+
+.htp-close {
+  background: none;
+  border: none;
+  color: rgba(232,223,192,0.5);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: all 0.15s;
+}
+.htp-close:hover { color: var(--red-scratch); background: rgba(239,68,68,0.1); }
+
+.htp-slide-area {
+  padding: 28px 28px 12px;
+  min-height: 220px;
+}
+
+.htp-slide {
+  animation: htp-slide-in 0.3s ease-out;
+}
+@keyframes htp-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.htp-slide-icon {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.htp-slide-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--gold-light);
+  text-align: center;
+  margin-bottom: 12px;
+}
+.htp-slide-body {
+  font-size: 0.9rem;
+  color: rgba(232,223,192,0.85);
+  line-height: 1.7;
+  text-align: center;
+}
+.htp-slide-body strong { color: var(--gold-glow); }
+.htp-slide-body em     { color: var(--blue-flip); font-style: normal; font-weight: 600; }
+
+.htp-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.htp-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(212,160,23,0.25);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.htp-dot.active {
+  background: var(--gold-mid);
+  transform: scale(1.25);
+}
+.htp-dot:hover { background: rgba(212,160,23,0.6); }
+
+.htp-nav {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 20px 20px;
+  gap: 10px;
+}
+.htp-nav-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--r-md);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(212,160,23,0.25);
+  background: rgba(212,160,23,0.08);
+  color: var(--gold-light);
+  transition: all 0.2s;
+}
+.htp-nav-btn:hover { background: rgba(212,160,23,0.18); transform: translateY(-1px); }
+.htp-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+.htp-nav-primary {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold-mid));
+  color: #1a0e00;
+  border: none;
+  box-shadow: 0 4px 16px rgba(212,160,23,0.3);
+}
+.htp-nav-primary:hover { box-shadow: var(--glow-gold); background: linear-gradient(135deg, var(--gold-mid), var(--gold-glow)); }
+
+/* ─── Volteo Assistant ──────────────────────────────────────────────── */
+.volteo-assistant {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(10,30,50,0.9);
+  border: 1px solid rgba(56,189,248,0.3);
+  border-radius: var(--r-lg);
+  padding: 14px 18px;
+  animation: fadeIn 0.25s ease-out;
+  backdrop-filter: blur(8px);
+}
+.volteo-assistant.hidden { display: none; }
+
+.va-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.va-icon { font-size: 1.1rem; }
+.va-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--blue-flip);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.va-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.va-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(56,189,248,0.12);
+  font-size: 0.82rem;
+  transition: background 0.15s;
+  cursor: default;
+}
+.va-item.va-best {
+  background: rgba(56,189,248,0.1);
+  border-color: rgba(56,189,248,0.4);
+}
+.va-die    { color: rgba(232,223,192,0.7); flex-shrink: 0; }
+.va-arrow  { color: var(--blue-flip); font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+.va-gain   { color: var(--green-action); font-weight: 700; margin-left: auto; white-space: nowrap; }
+.va-nogain { color: rgba(232,223,192,0.35); font-size: 0.75rem; margin-left: auto; }
+
+/* ─── Leaderboard overlay ───────────────────────────────────────────── */
+.leaderboard-overlay {
+  align-items: flex-start;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.lb-card {
+  background: rgba(13,40,24,0.98);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: var(--r-xl);
+  width: 100%;
+  max-width: 820px;
+  box-shadow: var(--shadow-card), var(--glow-gold);
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  margin: auto;
+}
+
+.lb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(212,160,23,0.15);
+}
+.lb-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--gold-light);
+}
+
+/* Podium */
+.lb-podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 24px 16px 16px;
+}
+
+.lb-pod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(212,160,23,0.15);
+  background: rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+  min-width: 90px;
+}
+.lb-pod-0 { transform: scale(1.08); border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.08); }
+.lb-pod-1 { transform: scale(1.02); border-color: rgba(192,192,192,0.4); }
+.lb-pod-2 { border-color: rgba(205,127,50,0.4); }
+.lb-pod.lb-winner { box-shadow: var(--glow-gold); }
+
+.lb-medal       { font-size: 1.5rem; }
+.lb-pod-avatar  { font-size: 2rem; }
+.lb-pod-name    { font-size: 0.8rem; font-weight: 600; color: rgba(232,223,192,0.85); text-align: center; }
+.lb-pod-pts     { font-size: 1rem; font-weight: 800; color: var(--gold-light); }
+
+/* Breakdown table */
+.lb-breakdown-wrap {
+  overflow-x: auto;
+  padding: 0 4px 4px;
+}
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.lb-table thead tr {
+  background: rgba(0,0,0,0.4);
+}
+.lb-table th {
+  padding: 8px 4px;
+  color: var(--gold-glow);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-align: center;
+  border-bottom: 1px solid rgba(212,160,23,0.2);
+}
+.lb-th-rank   { width: 32px; }
+.lb-th-player { text-align: left; padding-left: 16px; min-width: 100px; }
+.lb-th-total  { color: var(--gold-light); min-width: 52px; }
+
+.lb-row {
+  border-bottom: 1px solid rgba(212,160,23,0.08);
+  transition: background 0.15s;
+}
+.lb-row:hover { background: rgba(212,160,23,0.06); }
+.lb-row-winner { background: rgba(212,160,23,0.1); }
+.lb-row-winner .lb-td-total { color: var(--gold-glow); }
+
+.lb-row td { padding: 8px 4px; text-align: center; color: rgba(232,223,192,0.8); }
+.lb-td-rank   { color: var(--gold-mid); font-size: 1rem; }
+.lb-td-player { text-align: left; padding-left: 16px; }
+.lb-av        { font-size: 1.1rem; margin-right: 6px; }
+.lb-nm        { font-weight: 600; }
+.lb-td-total  { font-weight: 800; font-size: 0.9rem; color: var(--gold-light); }
+.lb-td-open   { color: rgba(232,223,192,0.25); }
+.lb-td-scratch { color: rgba(239,68,68,0.7); font-weight: 700; }
+
+.lb-play-again-btn {
+  display: block;
+  width: calc(100% - 48px);
+  margin: 16px 24px 24px;
+  padding: 14px;
+  text-align: center;
+}
+
+/* ─── Game-over leaderboard button ──────────────────────────────────── */
+.btn-see-leaderboard {
+  width: 100%;
+  padding: 13px;
+  background: rgba(56,189,248,0.12);
+  border: 1px solid rgba(56,189,248,0.35);
+  border-radius: var(--r-md);
+  color: var(--blue-flip);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+.btn-see-leaderboard:hover { background: rgba(56,189,248,0.22); transform: translateY(-2px); }
+
