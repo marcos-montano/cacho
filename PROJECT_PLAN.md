@@ -84,19 +84,19 @@ This document tracks all features, architectural milestones, and implementation 
 ## 🪑 Phase 4: Local Pass & Play Mode (Same Device)
 *Optimized for a family sitting around an iPad, tablet, or laptop.*
 
-- [ ] **Tactile UI & Table Experience:**
+- [>] **Tactile UI & Table Experience:**
   - [ ] 3D dice with rolling physics & shadow animations
   - [ ] Green felt tavern surface with wooden cup (*cubilete*) shake animation
-  - [ ] Parchment-style traditional 3×3 *Taquilla* scoreboard
-- [ ] **Player Management:**
-  - [ ] Add 2 to 6 players
-  - [ ] Kid-friendly player avatars / colors / customizable names
-- [ ] **Turn Handover Screen:**
-  - [ ] "Pass the device to [Next Player]" overlay with friendly transition
-  - [ ] Clear turn & roll indicator (Roll 1 of 2, Flip 1 of 2)
-- [ ] **Celebration & Victory Animations:**
-  - [ ] Confetti effect on match win
-  - [ ] Special dramatic sound and animation for *La Dormida*
+  - [x] Parchment-style traditional 3×3 *Taquilla* scoreboard (`src/ui/components/scoreboard.ts`)
+- [x] **Player Management:**
+  - [x] Add 2 to 6 players
+  - [x] Kid-friendly player avatars / colors / customizable names
+- [x] **Turn Handover Screen:**
+  - [x] "Pass the device to [Next Player]" overlay with friendly transition (`src/main.ts` → `showPassDeviceOverlay`)
+  - [x] Clear turn & roll indicator (Roll 1 of 2, Flip 1 of 2)
+- [>] **Celebration & Victory Animations:**
+  - [x] Confetti effect on match win (`src/ui/animations/confetti.ts`)
+  - [x] Special dramatic overlay and animation for *La Dormida* (`#overlay-dormida`)
   - [ ] Match leaderboard and score breakdown
 
 ---
@@ -152,3 +152,4 @@ This document tracks all features, architectural milestones, and implementation 
 * **2026-09-26 (Session 1):** Reviewed `docs/` folder (HTML prototype, English rules guide, cultural background). Established project `README.md` and detailed `PROJECT_PLAN.md`.
 * **2026-09-26 (Session 2):** ✅ Phase 1 complete — Vite + TypeScript scaffold (`npm run dev/build/test`), Vitest, `.gitignore`, full `src/` directory structure, `NetworkAdapter` interface, `LocalAdapter`.
   ✅ Phase 2 complete — `src/core/types.ts` (typed dice/state/events), `src/core/volteo.ts` (El Volteo logic), `src/core/scoring.ts` (all 11 Taquilla categories), `src/core/engine.ts` (full turn state machine with La Dormida). **79/79 unit tests passing.**
+* **2026-09-27 (Session 3):** 🔄 Phase 4 partially complete — Player management (2–6 players, avatars, names), Turn Handover overlay, parchment Taquilla scoreboard, confetti win animation, and La Dormida overlay all implemented. Remaining: 3D dice physics, *cubilete* shake animation, match leaderboard/score breakdown screen.

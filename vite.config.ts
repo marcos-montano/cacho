@@ -20,7 +20,7 @@ export default defineConfig({
     // Test file discovery
     include: ['tests/**/*.test.ts'],
     // Show detailed output
-    reporter: 'verbose',
+    reporters: 'verbose',
     // Coverage (optional, run with: npx vitest run --coverage)
     coverage: {
       provider: 'v8',
