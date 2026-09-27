@@ -113,6 +113,20 @@ export class GameEngine {
     };
   }
 
+  /** Restores the engine to an exact state (used for multiplayer sync). */
+  restoreState(state: GameState): void {
+    this.state = {
+      ...state,
+      dice: cloneDice(state.dice),
+      players: state.players.map((p) => ({
+        ...p,
+        scores: { ...p.scores },
+        scratched: new Set(p.scratched),
+      })),
+      flippedDieIds: new Set(state.flippedDieIds),
+    };
+  }
+
   private get active(): Player {
     return this.state.players[this.state.activePlayerIndex];
   }

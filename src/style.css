@@ -258,6 +258,100 @@ body {
   box-shadow: var(--glow-gold);
 }
 .btn-start-game:active { transform: translateY(0); }
+
+/* ─── Network Setup ─────────────────────────────────────────────────── */
+.network-setup {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(212,160,23,0.3);
+}
+
+.network-setup h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--gold-light);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.network-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-network {
+  width: 100%;
+  padding: 12px;
+  background: rgba(13,40,24,0.8);
+  border: 1px solid var(--gold-mid);
+  border-radius: var(--r-md);
+  color: var(--gold-glow);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-network:hover {
+  background: rgba(212,160,23,0.15);
+  box-shadow: 0 0 10px rgba(212,160,23,0.3);
+}
+
+.join-group {
+  display: flex;
+  gap: 8px;
+}
+
+.join-group input {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(212,160,23,0.5);
+  border-radius: var(--r-md);
+  padding: 10px;
+  color: #fff;
+  font-family: var(--font-ui);
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.network-status {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #a0c0a0;
+}
+
+.room-code-display {
+  margin-top: 15px;
+  background: rgba(0,0,0,0.2);
+  padding: 15px;
+  border-radius: var(--r-md);
+  text-align: center;
+  border: 1px dashed var(--gold-mid);
+}
+
+.room-code-display p {
+  margin-bottom: 10px;
+  color: var(--gold-light);
+}
+
+.room-code-display strong {
+  font-size: 1.5rem;
+  color: #fff;
+  letter-spacing: 4px;
+}
+
+#qrcode canvas {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 100%;
+  height: auto;
+}
 .btn-start-game:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ─── Game Screen Layout ────────────────────────────────────────────── */

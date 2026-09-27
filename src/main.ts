@@ -16,6 +16,8 @@ import { GameEngine, createPlayer } from './core/engine';
 import type { Category, GameState, Player } from './core/types';
 import { ALL_CATEGORIES } from './core/types';
 import { calculateScore, previewAllScores } from './core/scoring';
+import { PeerAdapter, generateRoomCode, type NetworkAdapter } from './core/network';
+import QRCode from 'qrcode';
 
 import { DiceArea } from './ui/components/dice';
 import { Scoreboard } from './ui/components/scoreboard';
@@ -70,6 +72,10 @@ const howToPlay = new HowToPlayModal();
 const leaderboard = new Leaderboard();
 let volteoAssistant: VolteoAssistant | null = null;
 
+let network: NetworkAdapter | null = null;
+let isHost: boolean = false;
+let myPlayerId: number | null = null; // Used to block inputs if it's not our turn in multiplayer
+
 // Flip mode: during volteo phases, clicking a die flips it instead of keeping it
 let flipMode = false;
 
@@ -96,7 +102,23 @@ function buildHTML(): void {
         </div>
         <div id="player-list" class="player-list"></div>
         <button id="btn-add-player" class="btn-add-player">＋ Add Player</button>
-        <button id="btn-start-game" class="btn-start-game">🎲 Start Game</button>
+        <button id="btn-start-game" class="btn-start-game">🎲 Start Local Game</button>
+        
+        <div class="network-setup">
+          <h3>Juego en Línea / Online Game</h3>
+          <div class="network-actions">
+            <button id="btn-host-game" class="btn-network">🌐 Host Game</button>
+            <div class="join-group">
+              <input type="text" id="input-room-code" placeholder="Room Code" maxlength="4" style="text-transform: uppercase;">
+              <button id="btn-join-game" class="btn-network">Join</button>
+            </div>
+          </div>
+          <div id="network-status" class="network-status"></div>
+          <div id="room-code-display" class="room-code-display" style="display: none;">
+            <p>Share this code: <strong id="room-code-text"></strong></p>
+            <div id="qrcode"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -313,6 +335,143 @@ function initSetupListeners(): void {
 
   document.getElementById('btn-lang-toggle')!.addEventListener('click', toggleLang);
   document.getElementById('btn-how-to-play')!.addEventListener('click', () => howToPlay.show());
+
+  // Network buttons
+  document.getElementById('btn-host-game')!.addEventListener('click', async () => {
+    isHost = true;
+    const roomCode = generateRoomCode();
+    myPlayerId = 1; // Host is always player 1 to start
+    
+    document.getElementById('network-status')!.textContent = 'Connecting...';
+    
+    network = new PeerAdapter(true, roomCode, () => {
+      document.getElementById('network-status')!.textContent = 'Room created! Waiting for players...';
+      const rcd = document.getElementById('room-code-display')!;
+      rcd.style.display = 'block';
+      document.getElementById('room-code-text')!.textContent = roomCode;
+      
+      const shareUrl = `${window.location.origin}/?room=${roomCode}`;
+      const canvas = document.createElement('canvas');
+      QRCode.toCanvas(canvas, shareUrl, (err: Error | null | undefined) => {
+        if (!err) {
+          const qrDiv = document.getElementById('qrcode')!;
+          qrDiv.innerHTML = '';
+          qrDiv.appendChild(canvas);
+        }
+      });
+
+      // Host starts game when they want
+      const btnStart = document.getElementById('btn-start-game')!;
+      btnStart.textContent = '🎲 Start Multiplayer Game';
+      btnStart.onclick = () => {
+        startGame(); // Starts and broadcasts state
+      };
+    }, (err) => {
+      document.getElementById('network-status')!.textContent = `Error: ${err.message}`;
+    });
+
+    setupNetworkHandlers();
+  });
+
+  document.getElementById('btn-join-game')!.addEventListener('click', () => {
+    isHost = false;
+    const codeInput = document.getElementById('input-room-code') as HTMLInputElement;
+    const roomCode = codeInput.value.toUpperCase();
+    if (roomCode.length !== 4) {
+      alert('Room code must be 4 letters');
+      return;
+    }
+    
+    document.getElementById('network-status')!.textContent = 'Joining room...';
+    
+    network = new PeerAdapter(false, roomCode, () => {
+      document.getElementById('network-status')!.textContent = 'Connected! Waiting for host to start...';
+      myPlayerId = setupPlayers.length; // Will be reassigned by host eventually
+      // Send join message
+      const myPlayerInfo = createPlayer(myPlayerId, setupPlayers[0].name, setupPlayers[0].avatar);
+      network!.broadcast({ type: 'PLAYER_JOIN', player: myPlayerInfo });
+    }, (err) => {
+      document.getElementById('network-status')!.textContent = `Error: ${err.message}`;
+    });
+
+    setupNetworkHandlers();
+  });
+  
+  // Auto-join from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const room = urlParams.get('room');
+  if (room) {
+    (document.getElementById('input-room-code') as HTMLInputElement).value = room;
+    // Auto click join after a small delay
+    setTimeout(() => document.getElementById('btn-join-game')!.click(), 500);
+  }
+}
+
+function setupNetworkHandlers() {
+  if (!network) return;
+  network.onMessage((msg) => {
+    switch (msg.type) {
+      case 'PLAYER_JOIN':
+        if (isHost) {
+          // Add player to local setup
+          setupPlayers.push({ name: msg.player.name, avatar: msg.player.avatar });
+          renderSetupScreen();
+          // We could send state back, but we'll just wait for host to click start
+        }
+        break;
+      case 'STATE_SYNC':
+        // Overwrite local engine state entirely
+        if (!engine) {
+          // Client initializes engine if not present
+          engine = new GameEngine(msg.state.players);
+          transitionToGameScreen();
+        }
+        engine.restoreState(msg.state);
+        syncUI();
+        break;
+      case 'REMOTE_ACTION':
+        // A client requested an action
+        if (isHost && engine) {
+          handleRemoteAction(msg.action, msg.payload);
+        }
+        break;
+    }
+  });
+}
+
+function handleRemoteAction(action: string, payload: any) {
+  // Only host executes these to prevent conflicts, then broadcasts state
+  try {
+    if (action === 'roll1') engine!.roll1();
+    else if (action === 'roll2') engine!.roll2();
+    else if (action === 'keep') engine!.toggleKeep(payload.dieId);
+    else if (action === 'flip') engine!.flipDie(payload.dieId);
+    else if (action === 'unflip') engine!.unflipDie(payload.dieId);
+    else if (action === 'score') engine!.scoreCategory(payload.cat);
+    else if (action === 'demano') engine!.standDeMano();
+    else if (action === 'skipflip') engine!.skipOptionalFlip();
+    
+    // Broadcast new state
+    broadcastState();
+    syncUI();
+  } catch (e) {
+    console.error('Remote action failed:', e);
+  }
+}
+
+function broadcastState() {
+  if (isHost && network && engine) {
+    network.broadcast({ type: 'STATE_SYNC', state: engine.getState() });
+  }
+}
+
+function sendRemoteAction(action: string, payload: any = {}) {
+  if (!network) return;
+  if (isHost) {
+    handleRemoteAction(action, payload);
+  } else {
+    network.broadcast({ type: 'REMOTE_ACTION', action, payload });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -326,46 +485,7 @@ function startGame(): void {
   );
 
   engine = new GameEngine(players);
-
-  // Mount components
-  const diceMount = document.getElementById('dice-mount')!;
-  diceMount.innerHTML = '';
-  const diceContainer = document.createElement('div');
-  diceMount.appendChild(diceContainer);
-  diceArea = new DiceArea(diceContainer, { onDieClick: handleDieClick });
-
-  const playerBarMount = document.getElementById('player-bar-mount')!;
-  playerBarMount.innerHTML = '';
-  const pbContainer = document.createElement('div');
-  playerBarMount.appendChild(pbContainer);
-  playerBar = new PlayerBar(pbContainer);
-
-  const scoreboardMount = document.getElementById('scoreboard-mount')!;
-  scoreboardMount.innerHTML = '';
-  scoreboard = new Scoreboard(scoreboardMount, { onCategoryClick: handleCategoryClick });
-
-  const actionBarMount = document.getElementById('action-bar-mount')!;
-  actionBarMount.innerHTML = '';
-  const abContainer = document.createElement('div');
-  actionBarMount.appendChild(abContainer);
-  actionBar = new ActionBar(abContainer, {
-    onRoll1: handleRoll1,
-    onRoll2: handleRoll2,
-    onStandDeMano: handleStandDeMano,
-    onSkipFlip: handleSkipFlip,
-  });
-
-  // Volteo assistant
-  const vaMount = document.getElementById('va-mount')!;
-  vaMount.innerHTML = '';
-  const vaContainer = document.createElement('div');
-  vaMount.appendChild(vaContainer);
-  volteoAssistant = new VolteoAssistant(vaContainer);
-
-  // Game buttons in game screen
-  document.getElementById('btn-game-lang')!.addEventListener('click', toggleLang);
-  document.getElementById('btn-game-htp')!.addEventListener('click', () => howToPlay.show());
-
+  
   // Track whether La Dormida triggered to avoid double game-over screen
   let dormidaFired = false;
 
@@ -407,6 +527,53 @@ function startGame(): void {
     }
     syncUI();
   });
+
+  if (isHost && network) {
+    broadcastState();
+  }
+
+  transitionToGameScreen();
+}
+
+function transitionToGameScreen(): void {
+  // Mount components
+  const diceMount = document.getElementById('dice-mount')!;
+  diceMount.innerHTML = '';
+  const diceContainer = document.createElement('div');
+  diceMount.appendChild(diceContainer);
+  diceArea = new DiceArea(diceContainer, { onDieClick: handleDieClick });
+
+  const playerBarMount = document.getElementById('player-bar-mount')!;
+  playerBarMount.innerHTML = '';
+  const pbContainer = document.createElement('div');
+  playerBarMount.appendChild(pbContainer);
+  playerBar = new PlayerBar(pbContainer);
+
+  const scoreboardMount = document.getElementById('scoreboard-mount')!;
+  scoreboardMount.innerHTML = '';
+  scoreboard = new Scoreboard(scoreboardMount, { onCategoryClick: handleCategoryClick });
+
+  const actionBarMount = document.getElementById('action-bar-mount')!;
+  actionBarMount.innerHTML = '';
+  const abContainer = document.createElement('div');
+  actionBarMount.appendChild(abContainer);
+  actionBar = new ActionBar(abContainer, {
+    onRoll1: handleRoll1,
+    onRoll2: handleRoll2,
+    onStandDeMano: handleStandDeMano,
+    onSkipFlip: handleSkipFlip,
+  });
+
+  // Volteo assistant
+  const vaMount = document.getElementById('va-mount')!;
+  vaMount.innerHTML = '';
+  const vaContainer = document.createElement('div');
+  vaMount.appendChild(vaContainer);
+  volteoAssistant = new VolteoAssistant(vaContainer);
+
+  // Game buttons in game screen
+  document.getElementById('btn-game-lang')!.addEventListener('click', toggleLang);
+  document.getElementById('btn-game-htp')!.addEventListener('click', () => howToPlay.show());
 
   flipMode = false;
   showScreen('screen-game');
@@ -520,64 +687,108 @@ function updatePhaseBanner(state: GameState): void {
 // Engine action handlers
 // ---------------------------------------------------------------------------
 
+function checkTurn(): boolean {
+  if (network && myPlayerId !== null && engine) {
+    const activePlayer = engine.getState().players[engine.getState().activePlayerIndex];
+    if (activePlayer.id !== myPlayerId) {
+      toast.show('Wait for your turn!');
+      return false;
+    }
+  }
+  return true;
+}
+
 function handleRoll1(): void {
-  try { engine?.roll1(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  if (!checkTurn()) return;
+  if (!network) {
+    try { engine?.roll1(); syncUI(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  } else {
+    sendRemoteAction('roll1');
+  }
 }
 
 function handleRoll2(): void {
-  try { engine?.roll2(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
-  syncUI();
+  if (!checkTurn()) return;
+  if (!network) {
+    try { engine?.roll2(); syncUI(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  } else {
+    sendRemoteAction('roll2');
+  }
 }
 
 function handleStandDeMano(): void {
-  try { engine?.standDeMano(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  if (!checkTurn()) return;
+  if (!network) {
+    try { engine?.standDeMano(); syncUI(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  } else {
+    sendRemoteAction('demano');
+  }
 }
 
 function handleSkipFlip(): void {
-  try { engine?.skipOptionalFlip(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  if (!checkTurn()) return;
+  if (!network) {
+    try { engine?.skipOptionalFlip(); syncUI(); } catch (e) { toast.show(`⚠️ ${(e as Error).message}`); }
+  } else {
+    sendRemoteAction('skipflip');
+  }
 }
 
 function handleDieClick(dieId: number): void {
   if (!engine) return;
+  if (!checkTurn()) return;
+
   const state = engine.getState();
   const phase = state.turnPhase;
-  const die = state.dice[dieId];
+  const die = state.dice.find((d) => d.id === dieId);
 
   if (phase === 'ROLLED_1') {
-    // Toggle keep
-    try {
-      engine.toggleKeep(dieId);
-      syncUI();
-    } catch (e) {
-      toast.show(`⚠️ ${(e as Error).message}`);
-    }
-  } else if (phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL') {
-    if (die?.flipped) {
-      // Clicking a flipped die = undo the flip
+    if (!network) {
       try {
-        engine.unflipDie(dieId);
+        engine.toggleKeep(dieId);
         syncUI();
       } catch (e) {
         toast.show(`⚠️ ${(e as Error).message}`);
       }
     } else {
-      // Flip die
-      try {
-        engine.flipDie(dieId);
-        syncUI();
-      } catch (e) {
-        toast.show(`⚠️ ${(e as Error).message}`);
+      sendRemoteAction('keep', { dieId });
+    }
+  } else if (phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL') {
+    if (die?.flipped) {
+      if (!network) {
+        try {
+          engine.unflipDie(dieId);
+          syncUI();
+        } catch (e) {
+          toast.show(`⚠️ ${(e as Error).message}`);
+        }
+      } else {
+        sendRemoteAction('unflip', { dieId });
+      }
+    } else {
+      if (!network) {
+        try {
+          engine.flipDie(dieId);
+          syncUI();
+        } catch (e) {
+          toast.show(`⚠️ ${(e as Error).message}`);
+        }
+      } else {
+        sendRemoteAction('flip', { dieId });
       }
     }
   } else if (phase === 'SCORING') {
-    // In scoring phase, clicking a flipped die un-flips (reverts optional 2nd flip)
     if (die?.flipped && state.flippedDieIds.has(dieId)) {
-      try {
-        engine.unflipDie(dieId);
-        syncUI();
-        toast.show(currentLang === 'es' ? '↩ Volteo deshecho' : '↩ Flip undone');
-      } catch (e) {
-        toast.show(`⚠️ ${(e as Error).message}`);
+      if (!network) {
+        try {
+          engine.unflipDie(dieId);
+          syncUI();
+          toast.show(currentLang === 'es' ? '↩ Volteo deshecho' : '↩ Flip undone');
+        } catch (e) {
+          toast.show(`⚠️ ${(e as Error).message}`);
+        }
+      } else {
+        sendRemoteAction('unflip', { dieId });
       }
     }
   }
@@ -585,6 +796,8 @@ function handleDieClick(dieId: number): void {
 
 function handleCategoryClick(cat: Category): void {
   if (!engine) return;
+  if (!checkTurn()) return;
+
   const state = engine.getState();
 
   // Allow scoring from SCORING or VOLTEO_OPTIONAL (auto-skip the optional flip)
@@ -596,13 +809,17 @@ function handleCategoryClick(cat: Category): void {
     return;
   }
 
-  // If in optional volteo phase, auto-skip it first
+  // If in optional volteo phase, auto-skip it first locally
   if (state.turnPhase === 'VOLTEO_OPTIONAL') {
-    try {
-      engine.skipOptionalFlip();
-    } catch (e) {
-      toast.show(`⚠️ ${(e as Error).message}`);
-      return;
+    if (!network) {
+      try {
+        engine.skipOptionalFlip();
+      } catch (e) {
+        toast.show(`⚠️ ${(e as Error).message}`);
+        return;
+      }
+    } else {
+      // In network mode, host handles auto-skip.
     }
   }
 
@@ -618,10 +835,15 @@ function handleCategoryClick(cat: Category): void {
     if (!confirmed) return;
   }
 
-  try {
-    engine.scoreCategory(cat);
-  } catch (e) {
-    toast.show(`⚠️ ${(e as Error).message}`);
+  if (!network) {
+    try {
+      engine.scoreCategory(cat);
+      syncUI();
+    } catch (e) {
+      toast.show(`⚠️ ${(e as Error).message}`);
+    }
+  } else {
+    sendRemoteAction('score', { cat });
   }
 }
 

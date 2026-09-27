@@ -104,18 +104,18 @@ This document tracks all features, architectural milestones, and implementation 
 ## 📡 Phase 5: Online Real-Time Multiplayer
 *Play across different devices (kids in another room or family in another city).*
 
-- [ ] **Room & Lobby System:**
-  - [ ] "Host Game" creates a 4-letter room code (e.g. `ALALAY`)
-  - [ ] One-click shareable URL (e.g. `https://domain.com/?room=ALALAY`)
-  - [ ] QR code generator so kids can scan with an iPad camera to join in 2 seconds
-- [ ] **Realtime State Synchronization:**
-  - [ ] Adapter pattern: decouple UI from transport layer (scaffolded in Phase 2)
-  - [ ] Integration with serverless realtime provider (Firebase Realtime Database or PeerJS WebRTC)
-  - [ ] Smooth remote player dice roll animations
-  - [ ] Spectator / multiple player support in the same room
-- [ ] **Reconnection & Disconnect Grace:**
-  - [ ] Preserve game state in `localStorage`
-  - [ ] Auto-reconnect if Wi-Fi drops momentarily
+- [x] **Room & Lobby System:**
+  - [x] "Host Game" creates a 4-letter room code (e.g. `ALALAY`)
+  - [x] One-click shareable URL (e.g. `https://domain.com/?room=ALALAY`)
+  - [x] QR code generator so kids can scan with an iPad camera to join in 2 seconds
+- [x] **Realtime State Synchronization:**
+  - [x] Adapter pattern: decouple UI from transport layer (scaffolded in Phase 2)
+  - [x] Integration with serverless realtime provider (PeerJS WebRTC)
+  - [x] Smooth remote player dice roll animations
+  - [x] Spectator / multiple player support in the same room
+- [x] **Reconnection & Disconnect Grace:**
+  - [x] Preserve game state in `localStorage`
+  - [x] Auto-reconnect if Wi-Fi drops momentarily
 
 ---
 
