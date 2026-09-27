@@ -17,6 +17,7 @@ import type { Category, GameState, Player } from './core/types';
 import { ALL_CATEGORIES } from './core/types';
 import { calculateScore, previewAllScores } from './core/scoring';
 import { PeerAdapter, generateRoomCode, type NetworkAdapter } from './core/network';
+import { initAudio, toggleMute, playShake, playClick, playScore, playWin } from './core/audio';
 import QRCode from 'qrcode';
 
 import { DiceArea } from './ui/components/dice';
@@ -97,6 +98,7 @@ function buildHTML(): void {
           <h2>¿Quiénes juegan?</h2>
           <div class="setup-meta-btns">
             <button id="btn-lang-toggle" class="btn-meta" title="Switch language">🇧🇴 ES</button>
+            <button id="btn-mute-toggle" class="btn-meta" title="Toggle Sound">🔊</button>
             <button id="btn-how-to-play" class="btn-meta" title="How to Play">📖 Reglas</button>
           </div>
         </div>
@@ -139,6 +141,7 @@ function buildHTML(): void {
             </div>
             <div class="phase-meta-btns">
               <button id="btn-game-lang" class="btn-meta btn-meta-sm" title="Switch language">🇧🇴</button>
+              <button id="btn-game-mute" class="btn-meta btn-meta-sm" title="Toggle Sound">🔊</button>
               <button id="btn-game-htp"  class="btn-meta btn-meta-sm" title="How to Play">📖</button>
             </div>
           </div>
@@ -336,6 +339,17 @@ function initSetupListeners(): void {
   document.getElementById('btn-lang-toggle')!.addEventListener('click', toggleLang);
   document.getElementById('btn-how-to-play')!.addEventListener('click', () => howToPlay.show());
 
+  document.getElementById('btn-mute-toggle')!.addEventListener('click', () => {
+    initAudio();
+    const muted = toggleMute();
+    updateMuteButtons(muted);
+  });
+  document.getElementById('btn-game-mute')!.addEventListener('click', () => {
+    initAudio();
+    const muted = toggleMute();
+    updateMuteButtons(muted);
+  });
+
   // Network buttons
   document.getElementById('btn-host-game')!.addEventListener('click', async () => {
     isHost = true;
@@ -479,6 +493,7 @@ function sendRemoteAction(action: string, payload: any = {}) {
 // ---------------------------------------------------------------------------
 
 function startGame(): void {
+  initAudio();
   // Create engine with configured players
   const players: Player[] = setupPlayers.map((p, i) =>
     createPlayer(i + 1, (p.name || DEFAULT_NAMES[i]) ?? `Player ${i + 1}`, p.avatar),
@@ -494,10 +509,12 @@ function startGame(): void {
     const state = engine!.getState();
     switch (event.type) {
       case 'DICE_ROLLED':
+        playShake();
         animateCubilete();
         diceArea?.animateRoll(event.dice);
         break;
       case 'DIE_FLIPPED':
+        playClick();
         diceArea?.animateFlip(event.dieId);
         toast.show(`↕ ${state.players[state.activePlayerIndex].name} flipped a die`);
         break;
@@ -507,12 +524,15 @@ function startGame(): void {
           : '✋ Standing De Mano — +5 bonus for Combinations!');
         break;
       case 'CATEGORY_SCORED':
+        playScore();
         toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano!)' : ''}`);
         break;
       case 'CATEGORY_SCRATCHED':
+        playClick();
         toast.show(`✕ ${event.category.toUpperCase()} ${currentLang === 'es' ? 'tachado' : 'scratched'}`);
         break;
       case 'DORMIDA':
+        playWin();
         dormidaFired = true;
         showDormidaOverlay(state);
         break;
@@ -521,6 +541,7 @@ function startGame(): void {
         break;
       case 'GAME_OVER':
         if (!dormidaFired) {
+          playWin();
           setTimeout(() => showGameOver(event.winnerId, event.scores, state), 500);
         }
         break;
@@ -578,6 +599,14 @@ function transitionToGameScreen(): void {
   flipMode = false;
   showScreen('screen-game');
   syncUI();
+}
+
+function updateMuteButtons(muted: boolean): void {
+  const icon = muted ? '🔇' : '🔊';
+  const setupBtn = document.getElementById('btn-mute-toggle');
+  const gameBtn = document.getElementById('btn-game-mute');
+  if (setupBtn) setupBtn.textContent = icon;
+  if (gameBtn) gameBtn.textContent = icon;
 }
 
 // ---------------------------------------------------------------------------
@@ -948,8 +977,25 @@ function showGameOver(
 }
 
 // ---------------------------------------------------------------------------
-// Bootstrap
+// Bootstrap & Global Listeners
 // ---------------------------------------------------------------------------
+
+document.addEventListener('keydown', (e) => {
+  if (!engine) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+  const state = engine.getState();
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state.turnPhase === 'INIT') handleRoll1();
+    else if (state.turnPhase === 'ROLLED_1') handleRoll2();
+  } else if (e.key >= '1' && e.key <= '5') {
+    const idx = parseInt(e.key, 10) - 1;
+    if (state.dice[idx]) {
+      handleDieClick(state.dice[idx].id);
+    }
+  }
+});
 
 buildHTML();
 renderSetupScreen();

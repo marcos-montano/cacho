@@ -122,19 +122,19 @@ This document tracks all features, architectural milestones, and implementation 
 ## 📱 Phase 6: PWA, Audio & Final Polish
 *Make the game feel like a native app with zero installation barriers.*
 
-- [ ] **Web Audio / Tone.js Sound Design:**
-  - [ ] Realistic leather cup shake and rattle
-  - [ ] Wooden dice clacks and clicks
-  - [ ] Scoring chime and victory trumpet fanfare
-  - [ ] Mute/unmute persistent toggle
-- [ ] **Progressive Web App (PWA):**
-  - [ ] `manifest.json` configured with icons, standalone display mode, orientation lock
-  - [ ] Service worker for offline caching (works without internet for Pass & Play)
-  - [ ] "Add to Home Screen" instructions popup for iOS and Android
-- [ ] **Accessibility & Responsiveness:**
-  - [ ] Touch gestures optimized for iPad and small phones
-  - [ ] High contrast mode for dice pips
-  - [ ] Keyboard shortcuts for laptop players (Space = Roll, 1-5 = Select dice)
+- [x] **Web Audio / Tone.js Sound Design:**
+  - [x] Realistic leather cup shake and rattle
+  - [x] Wooden dice clacks and clicks
+  - [x] Scoring chime and victory trumpet fanfare
+  - [x] Mute/unmute persistent toggle
+- [x] **Progressive Web App (PWA):**
+  - [x] `manifest.json` configured with icons, standalone display mode, orientation lock
+  - [x] Service worker for offline caching (works without internet for Pass & Play)
+  - [x] "Add to Home Screen" instructions popup for iOS and Android
+- [x] **Accessibility & Responsiveness:**
+  - [x] Touch gestures optimized for iPad and small phones
+  - [x] High contrast mode for dice pips
+  - [x] Keyboard shortcuts for laptop players (Space = Roll, 1-5 = Select dice)
 
 ---
 
