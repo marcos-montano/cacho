@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: './',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -39,7 +40,14 @@ export default defineConfig({
   // Production build settings
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // turn off in production for performance/security
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
 
   // Vitest configuration
