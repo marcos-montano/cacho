@@ -84,14 +84,19 @@ export class PeerAdapter implements NetworkAdapter {
 
   private setupConnection(conn: DataConnection) {
     conn.on('data', (data) => {
-      const msg = data as NetworkMessage;
-      // If host, rebroadcast to others so everyone is in sync
-      if (this.isHost) {
-        this.connections.forEach(c => {
-          if (c !== conn) c.send(msg);
-        });
+      try {
+        const msg = deserializeNetworkMessage(data);
+        // If host, rebroadcast to others so everyone is in sync
+        if (this.isHost) {
+          const rawStr = typeof data === 'string' ? data : serializeNetworkMessage(msg);
+          this.connections.forEach(c => {
+            if (c !== conn) c.send(rawStr);
+          });
+        }
+        this.messageHandlers.forEach(h => h(msg));
+      } catch (err) {
+        console.error('Error handling network data:', err);
       }
-      this.messageHandlers.forEach(h => h(msg));
     });
   }
 
@@ -100,10 +105,11 @@ export class PeerAdapter implements NetworkAdapter {
   }
 
   broadcast(msg: NetworkMessage): void {
+    const serialized = serializeNetworkMessage(msg);
     if (this.isHost) {
-      this.connections.forEach(conn => conn.send(msg));
+      this.connections.forEach(conn => conn.send(serialized));
     } else if (this.hostConnection) {
-      this.hostConnection.send(msg);
+      this.hostConnection.send(serialized);
     }
   }
 
@@ -112,6 +118,30 @@ export class PeerAdapter implements NetworkAdapter {
     if (this.hostConnection) this.hostConnection.close();
     if (this.peer) this.peer.destroy();
   }
+}
+
+export function serializeNetworkMessage(msg: NetworkMessage): string {
+  return JSON.stringify(msg, (_key, value) => {
+    if (value instanceof Set) {
+      return Array.from(value);
+    }
+    return value;
+  });
+}
+
+export function deserializeNetworkMessage(raw: unknown): NetworkMessage {
+  const msg: NetworkMessage = typeof raw === 'string' ? JSON.parse(raw) : (raw as NetworkMessage);
+  if (msg.type === 'STATE_SYNC' || msg.type === 'GAME_START') {
+    if (msg.state) {
+      msg.state.flippedDieIds = new Set(msg.state.flippedDieIds || []);
+      if (Array.isArray(msg.state.players)) {
+        msg.state.players.forEach((p) => {
+          p.scratched = new Set(p.scratched || []);
+        });
+      }
+    }
+  }
+  return msg;
 }
 
 export function generateRoomCode(): string {
