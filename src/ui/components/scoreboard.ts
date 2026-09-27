@@ -1,43 +1,60 @@
 /**
  * @file scoreboard.ts
- * Parchment-style Taquilla scoreboard component.
- * Renders all 11 categories for all players. During SCORING phase,
- * open categories are clickable to assign scores or Tachar.
- * Supports bilingual display (ES / EN).
+ * Per-player Taquilla scoreboard — redesigned as individual 3×3 card matrices.
+ *
+ * Each player gets their own compact card showing the traditional 3×3 grid:
+ *
+ *   ┌──────────┬──────────┬──────────┐
+ *   │  Balas   │ Escalera │ Cuadras  │
+ *   │  Tontos  │  Full    │  Quinas  │
+ *   │  Trenes  │  Póker   │  Senas   │
+ *   ├──────────┴──────────┴──────────┤
+ *   │    Grande I  │    Grande II    │
+ *   └─────────────────────────────── ┘
+ *
+ * During SCORING phase the active player's open cells show potential pts
+ * and are clickable. Supports bilingual display (ES / EN).
  */
 
 import type { Category, Player } from '../../core/types';
 import { computeTotalScore } from '../../core/scoring';
 import type { Lang } from '../../main';
 
-// Human-readable category metadata — both languages
-const CATEGORY_META: Record<Category, { es: string; en: string; sub_es: string; sub_en: string }> = {
-  ones:     { es: 'Balas',    en: 'Ones',         sub_es: 'Unos (1s)',         sub_en: 'Ones (1s)' },
-  twos:     { es: 'Tontos',   en: 'Twos',         sub_es: 'Dos (2s)',          sub_en: 'Twos (2s)' },
-  threes:   { es: 'Trenes',   en: 'Threes',       sub_es: 'Treses (3s)',       sub_en: 'Threes (3s)' },
-  escalera: { es: 'Escalera', en: 'Straight',     sub_es: 'Escalera 20/25 pts',sub_en: 'Straight 20/25 pts' },
-  full:     { es: 'Full',     en: 'Full House',   sub_es: 'Full 30/35 pts',   sub_en: 'Full House 30/35 pts' },
-  poker:    { es: 'Póker',    en: 'Four-of-Kind', sub_es: 'Póker 40/45 pts',  sub_en: 'Four of a Kind 40/45 pts' },
-  fours:    { es: 'Cuadras',  en: 'Fours',        sub_es: 'Cuatros (4s)',      sub_en: 'Fours (4s)' },
-  fives:    { es: 'Quinas',   en: 'Fives',        sub_es: 'Cincos (5s)',       sub_en: 'Fives (5s)' },
-  sixes:    { es: 'Senas',    en: 'Sixes',        sub_es: 'Seises (6s)',       sub_en: 'Sixes (6s)' },
-  grande1:  { es: 'Grande I', en: 'Grande I',     sub_es: '5 Iguales 50 pts', sub_en: 'Five of a Kind 50 pts' },
-  grande2:  { es: 'Grande II',en: 'Grande II',    sub_es: '5 Iguales 50 pts', sub_en: 'Five of a Kind 50 pts' },
+// ---------------------------------------------------------------------------
+// Category metadata
+// ---------------------------------------------------------------------------
+
+interface CatMeta {
+  es: string; en: string;
+  sub_es: string; sub_en: string;
+}
+
+const CATEGORY_META: Record<Category, CatMeta> = {
+  ones:     { es: 'Balas',    en: 'Ones',         sub_es: '1s', sub_en: '1s' },
+  twos:     { es: 'Tontos',   en: 'Twos',         sub_es: '2s', sub_en: '2s' },
+  threes:   { es: 'Trenes',   en: 'Threes',       sub_es: '3s', sub_en: '3s' },
+  escalera: { es: 'Escalera', en: 'Straight',     sub_es: '20/25', sub_en: '20/25' },
+  full:     { es: 'Full',     en: 'Full House',   sub_es: '30/35', sub_en: '30/35' },
+  poker:    { es: 'Póker',    en: 'Four-of-Kind', sub_es: '40/45', sub_en: '40/45' },
+  fours:    { es: 'Cuadras',  en: 'Fours',        sub_es: '4s', sub_en: '4s' },
+  fives:    { es: 'Quinas',   en: 'Fives',        sub_es: '5s', sub_en: '5s' },
+  sixes:    { es: 'Senas',    en: 'Sixes',        sub_es: '6s', sub_en: '6s' },
+  grande1:  { es: 'Grande I', en: 'Grande I',     sub_es: '50 pts', sub_en: '50 pts' },
+  grande2:  { es: 'Grande II',en: 'Grande II',    sub_es: '50 pts', sub_en: '50 pts' },
 };
 
-const SECTIONS_ES: { label: string; cats: Category[] }[] = [
-  { label: 'Chicos', cats: ['ones', 'twos', 'threes'] },
-  { label: 'Juegos', cats: ['escalera', 'full', 'poker'] },
-  { label: 'Grandes', cats: ['fours', 'fives', 'sixes'] },
-  { label: 'Grande', cats: ['grande1', 'grande2'] },
+// The classic 3-column layout of La Taquilla (read row-by-row)
+const GRID_ROWS: [Category, Category, Category][] = [
+  ['ones',     'escalera', 'fours'],
+  ['twos',     'full',     'fives'],
+  ['threes',   'poker',    'sixes'],
 ];
 
-const SECTIONS_EN: { label: string; cats: Category[] }[] = [
-  { label: 'Chicos (Low)', cats: ['ones', 'twos', 'threes'] },
-  { label: 'Juegos (Combos)', cats: ['escalera', 'full', 'poker'] },
-  { label: 'Grandes (High)', cats: ['fours', 'fives', 'sixes'] },
-  { label: 'Grande (5-of-a-kind)', cats: ['grande1', 'grande2'] },
-];
+const GRANDE_ROW: [Category, Category] = ['grande1', 'grande2'];
+
+// ---------------------------------------------------------------------------
+// Scoreboard component
+// ---------------------------------------------------------------------------
 
 export interface ScoreboardOptions {
   onCategoryClick: (cat: Category) => void;
@@ -52,7 +69,6 @@ export class Scoreboard {
     this.onCategoryClick = options.onCategoryClick;
   }
 
-  /** Full re-render when players or scores change. */
   render(
     players: Player[],
     isScoring: boolean,
@@ -60,125 +76,121 @@ export class Scoreboard {
     activePlayerIndex: number,
     lang: Lang = 'es',
   ): void {
-    const SECTIONS = lang === 'es' ? SECTIONS_ES : SECTIONS_EN;
     this.container.innerHTML = '';
 
-    const section = document.createElement('div');
-    section.className = 'scoreboard-section';
+    const wrap = document.createElement('div');
+    wrap.className = 'sb-wrap';
 
-    const title = document.createElement('div');
-    title.className = 'scoreboard-title';
-    title.textContent = 'La Taquilla';
-    section.appendChild(title);
+    for (let pi = 0; pi < players.length; pi++) {
+      const player = players[pi];
+      const isActive = pi === activePlayerIndex;
+      const total = computeTotalScore(player.scores);
 
-    const board = document.createElement('div');
-    board.className = 'scoreboard';
+      const card = document.createElement('div');
+      card.className = `sb-player-card${isActive ? ' sb-active' : ''}`;
+      card.id = `sb-card-${player.id}`;
 
-    const table = document.createElement('table');
-    table.className = 'score-table';
+      // Card header
+      const header = document.createElement('div');
+      header.className = 'sb-card-header';
+      header.innerHTML = `
+        <span class="sb-avatar">${player.avatar}</span>
+        <span class="sb-pname">${player.name}</span>
+        <span class="sb-total" id="sb-total-${player.id}">${total} pts</span>
+      `;
+      card.appendChild(header);
 
-    // Header row
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
+      // 3×3 grid
+      const grid = document.createElement('div');
+      grid.className = 'sb-grid';
 
-    const catTh = document.createElement('th');
-    catTh.textContent = 'Categoría';
-    headerRow.appendChild(catTh);
+      // Column headers (Chicos / Juegos / Grandes)
+      const colHdrs = document.createElement('div');
+      colHdrs.className = 'sb-col-headers';
+      const cols = lang === 'es'
+        ? ['Chicos', 'Juegos', 'Grandes']
+        : ['Low', 'Combos', 'High'];
+      colHdrs.innerHTML = cols.map(c => `<div class="sb-col-hdr">${c}</div>`).join('');
+      grid.appendChild(colHdrs);
 
-    for (const player of players) {
-      const th = document.createElement('th');
-      th.textContent = `${player.avatar} ${player.name}`;
-      th.style.maxWidth = '80px';
-      headerRow.appendChild(th);
-    }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // Body rows
-    const tbody = document.createElement('tbody');
-
-    for (const sec of SECTIONS) {
-      // Section header
-      const secRow = document.createElement('tr');
-      secRow.className = 'score-section-header';
-      const secTd = document.createElement('td');
-      secTd.colSpan = players.length + 1;
-      secTd.textContent = sec.label;
-      secRow.appendChild(secTd);
-      tbody.appendChild(secRow);
-
-      for (const cat of sec.cats) {
-        const row = document.createElement('tr');
-        row.className = 'score-row';
-        row.id = `score-row-${cat}`;
-
-        const nameTd = document.createElement('td');
-        nameTd.className = 'cat-name';
-        const catName = lang === 'es' ? CATEGORY_META[cat].es : CATEGORY_META[cat].en;
-        const catSub  = lang === 'es' ? CATEGORY_META[cat].sub_es : CATEGORY_META[cat].sub_en;
-        nameTd.innerHTML = `${catName}<small>${catSub}</small>`;
-        row.appendChild(nameTd);
-
-        for (let pi = 0; pi < players.length; pi++) {
-          const player = players[pi];
-          const cell = document.createElement('td');
-          cell.className = 'score-cell';
-          cell.id = `score-cell-${cat}-${player.id}`;
-
-          const scored = player.scores[cat];
-          const isActive = pi === activePlayerIndex;
-
-          if (scored !== undefined) {
-            // Already filled
-            if (player.scratched.has(cat)) {
-              cell.className = 'score-cell scratched';
-              cell.textContent = '✕';
-            } else {
-              cell.textContent = String(scored);
-            }
-          } else if (isScoring && isActive) {
-            // Current player can score this category
-            const potential = potentials[cat];
-            if (potential !== undefined && potential > 0) {
-              cell.className = 'score-cell potential';
-              cell.textContent = `+${potential}`;
-            } else {
-              cell.className = 'score-cell empty';
-              cell.textContent = '—';
-            }
-            row.classList.add('is-scoring');
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', () => this.onCategoryClick(cat));
-          } else {
-            cell.className = 'score-cell empty';
-            cell.textContent = '—';
-          }
-
-          row.appendChild(cell);
+      // Rows
+      for (const [catA, catB, catC] of GRID_ROWS) {
+        const row = document.createElement('div');
+        row.className = 'sb-row';
+        for (const cat of [catA, catB, catC]) {
+          row.appendChild(this._makeCell(cat, player, isActive, isScoring, potentials, lang));
         }
-
-        tbody.appendChild(row);
+        grid.appendChild(row);
       }
+
+      // Grande row (spans full width, split 50/50)
+      const grandeRow = document.createElement('div');
+      grandeRow.className = 'sb-row sb-grande-row';
+      for (const cat of GRANDE_ROW) {
+        grandeRow.appendChild(this._makeCell(cat, player, isActive, isScoring, potentials, lang));
+      }
+      grid.appendChild(grandeRow);
+
+      card.appendChild(grid);
+      wrap.appendChild(card);
     }
 
-    // Total row
-    const totalRow = document.createElement('tr');
-    totalRow.className = 'score-total-row';
-    const totalLabelTd = document.createElement('td');
-    totalLabelTd.textContent = lang === 'es' ? 'Total' : 'Total';
-    totalRow.appendChild(totalLabelTd);
+    this.container.appendChild(wrap);
+  }
 
-    for (const player of players) {
-      const td = document.createElement('td');
-      td.textContent = String(computeTotalScore(player.scores));
-      td.id = `total-${player.id}`;
-      totalRow.appendChild(td);
+  private _makeCell(
+    cat: Category,
+    player: Player,
+    isActive: boolean,
+    isScoring: boolean,
+    potentials: Partial<Record<Category, number>>,
+    lang: Lang,
+  ): HTMLElement {
+    const meta = CATEGORY_META[cat];
+    const name = lang === 'es' ? meta.es : meta.en;
+    const sub  = lang === 'es' ? meta.sub_es : meta.sub_en;
+    const scored = player.scores[cat];
+    const isScratched = player.scratched.has(cat);
+    const clickable = isScoring && isActive && scored === undefined;
+    const potential = potentials[cat];
+
+    const cell = document.createElement('div');
+    cell.className = 'sb-cell';
+    cell.id = `sb-cell-${cat}-${player.id}`;
+
+    if (clickable) {
+      cell.classList.add('sb-cell-open');
+      if (potential !== undefined && potential > 0) {
+        cell.classList.add('sb-cell-potential');
+      }
+      cell.setAttribute('role', 'button');
+      cell.setAttribute('tabindex', '0');
+      cell.addEventListener('click', () => this.onCategoryClick(cat));
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') this.onCategoryClick(cat);
+      });
     }
-    tbody.appendChild(totalRow);
 
-    table.appendChild(tbody);
-    board.appendChild(table);
-    section.appendChild(board);
-    this.container.appendChild(section);
+    // Value display
+    let valueHTML = '';
+    if (scored !== undefined) {
+      if (isScratched) {
+        valueHTML = `<span class="sb-val sb-val-scratch">✕</span>`;
+      } else {
+        valueHTML = `<span class="sb-val sb-val-scored">${scored}</span>`;
+      }
+    } else if (clickable && potential !== undefined && potential > 0) {
+      valueHTML = `<span class="sb-val sb-val-pot">+${potential}</span>`;
+    } else {
+      valueHTML = `<span class="sb-val sb-val-empty">—</span>`;
+    }
+
+    cell.innerHTML = `
+      <div class="sb-cell-name">${name}</div>
+      <div class="sb-cell-sub">${sub}</div>
+      ${valueHTML}
+    `;
+
+    return cell;
   }
 }

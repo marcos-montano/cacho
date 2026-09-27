@@ -537,6 +537,7 @@ function handleDieClick(dieId: number): void {
   if (!engine) return;
   const state = engine.getState();
   const phase = state.turnPhase;
+  const die = state.dice[dieId];
 
   if (phase === 'ROLLED_1') {
     // Toggle keep
@@ -547,11 +548,33 @@ function handleDieClick(dieId: number): void {
       toast.show(`⚠️ ${(e as Error).message}`);
     }
   } else if (phase === 'VOLTEO_MANDATORY' || phase === 'VOLTEO_OPTIONAL') {
-    // Flip die
-    try {
-      engine.flipDie(dieId);
-    } catch (e) {
-      toast.show(`⚠️ ${(e as Error).message}`);
+    if (die?.flipped) {
+      // Clicking a flipped die = undo the flip
+      try {
+        engine.unflipDie(dieId);
+        syncUI();
+      } catch (e) {
+        toast.show(`⚠️ ${(e as Error).message}`);
+      }
+    } else {
+      // Flip die
+      try {
+        engine.flipDie(dieId);
+        syncUI();
+      } catch (e) {
+        toast.show(`⚠️ ${(e as Error).message}`);
+      }
+    }
+  } else if (phase === 'SCORING') {
+    // In scoring phase, clicking a flipped die un-flips (reverts optional 2nd flip)
+    if (die?.flipped && state.flippedDieIds.has(dieId)) {
+      try {
+        engine.unflipDie(dieId);
+        syncUI();
+        toast.show(currentLang === 'es' ? '↩ Volteo deshecho' : '↩ Flip undone');
+      } catch (e) {
+        toast.show(`⚠️ ${(e as Error).message}`);
+      }
     }
   }
 }

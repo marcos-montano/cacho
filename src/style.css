@@ -265,16 +265,18 @@ body {
   padding: 0;
   gap: 0;
   justify-content: flex-start;
+  height: 100dvh; /* fixed to viewport, no outer scroll */
+  overflow: hidden;
 }
 
 .game-layout {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  grid-template-columns: 1fr;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  overflow: hidden;
 }
 
 /* ─── Player Bar ────────────────────────────────────────────────────── */
@@ -329,9 +331,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px;
-  gap: 24px;
+  padding: 12px 16px 16px;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212,160,23,0.25) transparent;
 }
+.game-main::-webkit-scrollbar { width: 4px; }
+.game-main::-webkit-scrollbar-track { background: transparent; }
+.game-main::-webkit-scrollbar-thumb { background: rgba(212,160,23,0.3); border-radius: 4px; }
 
 /* ─── Phase Banner — flex layout defined lower in file ─────────────── */
 .phase-banner {
@@ -432,6 +441,18 @@ body {
 }
 .die.locked:hover { transform: none; box-shadow: var(--shadow-dice); }
 
+/* Undo hint on flipped die — shown during volteo phases */
+.die.flipped::after {
+  content: '↩';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.6rem;
+  color: var(--blue-flip);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
 /* Rolling animation — see rollDie3D at bottom of file */
 
 /* Volteo flip animation — see flipDie3D at bottom of file */
@@ -528,117 +549,130 @@ body {
 }
 .btn-danger:hover { background: rgba(239,68,68,0.22); }
 
-/* ─── Scoreboard ────────────────────────────────────────────────────── */
-.scoreboard-section {
+/* ─── Per-player Taquilla Matrix Scoreboard ─────────────────────────── */
+.sb-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
   width: 100%;
-  max-width: 680px;
+  max-width: 860px;
 }
 
-.scoreboard-title {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  color: var(--gold-light);
-  text-align: center;
-  margin-bottom: 12px;
-  letter-spacing: 0.05em;
-}
-
-.scoreboard {
+.sb-player-card {
   background: var(--parch-bg);
   border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-card), 0 0 0 1px rgba(201,176,122,0.5);
-  color: var(--parch-text);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(201,176,122,0.4);
+  flex: 1 1 190px;
+  max-width: 260px;
+  min-width: 170px;
+  transition: box-shadow 0.25s, transform 0.2s;
+}
+.sb-player-card.sb-active {
+  box-shadow: var(--shadow-card), 0 0 0 2px var(--gold-mid), var(--glow-gold);
+  transform: translateY(-2px);
 }
 
-.score-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-ui);
-}
-
-.score-table thead tr {
+/* Card header */
+.sb-card-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
   background: linear-gradient(135deg, #4a2c00, #7c5c0a);
+  color: var(--gold-glow);
 }
-
-.score-table thead th {
-  padding: 10px 8px;
-  font-size: 0.75rem;
+.sb-avatar { font-size: 1.1rem; }
+.sb-pname  {
+  flex: 1;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--gold-glow);
+  font-size: 0.78rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sb-total {
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Column header row */
+.sb-col-headers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: rgba(201,176,122,0.2);
+  border-bottom: 1px solid var(--parch-line);
+}
+.sb-col-hdr {
+  text-align: center;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  padding: 3px 1px;
+  border-right: 1px solid var(--parch-line);
+}
+.sb-col-hdr:last-child { border-right: none; }
+
+/* Grid */
+.sb-grid { display: flex; flex-direction: column; }
+
+.sb-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid rgba(201,176,122,0.25);
+}
+.sb-row:last-child { border-bottom: none; }
+
+.sb-grande-row {
+  grid-template-columns: repeat(2, 1fr);
+  background: rgba(201,176,122,0.07);
+}
+
+/* Individual cell */
+.sb-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 2px;
+  border-right: 1px solid rgba(201,176,122,0.22);
+  color: var(--parch-text);
+  min-height: 46px;
+  transition: background 0.15s;
+  position: relative;
   text-align: center;
 }
-.score-table thead th:first-child { text-align: left; padding-left: 16px; }
+.sb-cell:last-child { border-right: none; }
 
-.score-section-header td {
-  background: linear-gradient(90deg, rgba(180,140,40,0.18), rgba(180,140,40,0.05));
-  color: var(--gold-deep);
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 5px 16px;
-  border-top: 1px solid var(--parch-line);
-}
-
-.score-row {
-  border-bottom: 1px solid rgba(201,176,122,0.3);
-  transition: background 0.15s;
-}
-.score-row:last-child { border-bottom: none; }
-.score-row:hover { background: rgba(201,176,122,0.12); }
-
-.score-row.is-scoring {
-  cursor: pointer;
-}
-.score-row.is-scoring:hover { background: rgba(212,160,23,0.18); }
-
-.cat-name {
-  padding: 9px 8px 9px 16px;
-  font-size: 0.82rem;
-  font-weight: 500;
+.sb-cell-name {
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.15;
   color: var(--parch-text);
 }
-.cat-name small {
-  display: block;
-  font-size: 0.67rem;
-  color: rgba(58,42,16,0.55);
-  font-weight: 400;
+.sb-cell-sub {
+  font-size: 0.5rem;
+  color: rgba(58,42,16,0.4);
+  margin-bottom: 2px;
 }
 
-.score-cell {
-  text-align: center;
-  padding: 9px 4px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--parch-score);
-  min-width: 52px;
-}
+/* Value states */
+.sb-val { font-size: 0.88rem; font-weight: 700; line-height: 1; }
+.sb-val-scored  { color: var(--parch-score); }
+.sb-val-scratch { color: rgba(180,40,40,0.75); font-size: 1rem; }
+.sb-val-empty   { color: rgba(58,42,16,0.18); font-size: 0.7rem; font-weight: 400; }
+.sb-val-pot     { color: rgba(0,140,60,0.9); font-size: 0.76rem; font-style: italic; font-weight: 700; }
 
-.score-cell.empty   { color: rgba(58,42,16,0.3); font-weight: 400; font-size: 0.75rem; }
-.score-cell.scratched { color: rgba(180,40,40,0.7); font-size: 1.1rem; font-weight: 700; }
-.score-cell.potential {
-  color: rgba(0,120,60,0.8);
-  font-size: 0.78rem;
-  font-style: italic;
-  cursor: pointer;
-}
-.score-cell.potential:hover { background: rgba(0,120,60,0.1); }
+/* Clickable states */
+.sb-cell-open { cursor: pointer; }
+.sb-cell-open:hover { background: rgba(201,176,122,0.18); }
+.sb-cell-potential { background: rgba(0,140,60,0.06); }
+.sb-cell-potential:hover { background: rgba(0,140,60,0.14); }
 
-.score-total-row td {
-  background: linear-gradient(135deg, #4a2c00, #7c5c0a);
-  color: var(--gold-glow);
-  font-weight: 800;
-  font-size: 0.95rem;
-  padding: 12px 8px;
-  text-align: center;
-}
-.score-total-row td:first-child {
-  text-align: left;
-  padding-left: 16px;
-  font-family: var(--font-display);
-}
 
 /* ─── Pass Device Overlay ───────────────────────────────────────────── */
 .overlay {

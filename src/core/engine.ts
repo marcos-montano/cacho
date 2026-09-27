@@ -263,6 +263,43 @@ export class GameEngine {
   }
 
   /**
+   * Undoes the last volteo flip. The die is reverted to its pre-flip value.
+   *
+   * - If undoing from VOLTEO_OPTIONAL (only 1 flip done so far), reverts back to VOLTEO_MANDATORY.
+   * - If undoing the 2nd flip (was in SCORING after optional flip), reverts back to VOLTEO_OPTIONAL.
+   *
+   * @param dieId - The die that was previously flipped and should be unflipped.
+   */
+  unflipDie(dieId: number): void {
+    this.assertGameActive();
+    this.assertPhase('VOLTEO_OPTIONAL', 'SCORING');
+
+    if (!this.state.flippedDieIds.has(dieId)) {
+      throw new Error(`Die ${dieId} has not been flipped this turn.`);
+    }
+
+    const die = this.state.dice.find((d) => d.id === dieId);
+    if (!die) throw new Error(`Die ${dieId} not found.`);
+
+    // Flip back (opposite of opposite = original)
+    const oldVal = die.val;
+    die.val = (7 - die.val) as DieFace;
+    die.flipped = false;
+    this.state.flippedDieIds.delete(dieId);
+    this.state.flipsDone--;
+
+    this.emit({ type: 'DIE_FLIPPED', dieId, oldVal, newVal: die.val });
+
+    if (this.state.turnPhase === 'SCORING') {
+      // Undoing the 2nd (optional) flip → back to optional
+      this.state.turnPhase = 'VOLTEO_OPTIONAL';
+    } else {
+      // In VOLTEO_OPTIONAL, undoing the mandatory flip → back to mandatory
+      this.state.turnPhase = 'VOLTEO_MANDATORY';
+    }
+  }
+
+  /**
    * Player skips the optional second volteo flip.
    * Only legal in VOLTEO_OPTIONAL phase.
    */
