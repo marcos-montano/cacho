@@ -1092,9 +1092,8 @@ body {
   animation: cubileteShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
-/* ─── Dice + Volteo Assistant Container ───────────────────────────────── */
+/* ─── Dice area — always centered, no floating siblings ───────────────── */
 .dice-va-row {
-  position: relative;
   width: 100%;
   max-width: 860px;
   display: flex;
@@ -1115,29 +1114,8 @@ body {
   flex-shrink: 0;
 }
 
-/* Floating Volteo Assistant container */
-.va-col {
-  z-index: 25;
-  width: 100%;
-  max-width: 440px;
-  display: flex;
-  justify-content: center;
-  margin-top: 6px;
-  transition: all 0.25s ease;
-}
-
-/* On desktop / wide displays, float assistant to the right side
-   so the dice remain dead center in the screen */
-@media (min-width: 860px) {
-  .va-col {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 250px;
-    margin-top: 0;
-  }
-}
+/* .va-col is kept in DOM but invisible — the real panel is body-level fixed */
+.va-col { display: none; }
 
 /* ─── Setup meta buttons (lang / how-to-play) ───────────────────────── */
 .setup-actions-row {
@@ -1332,95 +1310,110 @@ body {
 }
 .htp-nav-primary:hover { box-shadow: var(--glow-gold); background: linear-gradient(135deg, var(--gold-mid), var(--gold-glow)); }
 
-/* ─── Volteo Assistant ──────────────────────────────────────────────── */
-.volteo-assistant {
-  width: 100%;
-  max-width: 440px;
-  background: rgba(10,30,50,0.94);
-  border: 1px solid rgba(56,189,248,0.35);
+/* ─── Volteo Assistant — fixed floating panel on body ───────────────── */
+.va-panel {
+  position: fixed;
+  bottom: 96px;
+  right: 14px;
+  z-index: 200;
+  width: 230px;
+  background: rgba(8,24,42,0.96);
+  border: 1px solid rgba(56,189,248,0.4);
   border-radius: var(--r-lg);
-  padding: 12px 14px;
-  animation: fadeIn 0.25s ease-out;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 20px rgba(56,189,248,0.12);
-  transition: all 0.25s ease;
+  padding: 0;
+  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 22px rgba(56,189,248,0.14);
+  transition: box-shadow 0.2s, opacity 0.2s;
+  overflow: hidden;
 }
-.volteo-assistant.hidden { display: none !important; }
-
-.volteo-assistant.va-minimized {
-  max-width: 250px;
-  padding: 8px 12px;
-}
-.volteo-assistant.va-minimized .va-list {
-  display: none;
-}
-.volteo-assistant.va-minimized .va-header {
-  margin-bottom: 0;
+.va-panel.hidden { display: none !important; }
+.va-panel.va-dragging {
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(56,189,248,0.25);
+  opacity: 0.92;
 }
 
-.va-header {
+/* Drag handle / header */
+.va-drag-handle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  padding: 9px 10px 8px;
+  background: rgba(56,189,248,0.1);
+  border-bottom: 1px solid rgba(56,189,248,0.18);
+  cursor: grab;
+  user-select: none;
+  gap: 6px;
 }
+.va-drag-handle:active { cursor: grabbing; }
+
 .va-header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
+  gap: 6px;
+  min-width: 0;
 }
-.va-icon { font-size: 1.1rem; }
+.va-header-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.va-icon { font-size: 1rem; }
 .va-title {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--blue-flip);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .va-badge {
-  font-size: 0.7rem;
-  background: rgba(56,189,248,0.2);
+  font-size: 0.65rem;
+  background: rgba(56,189,248,0.25);
   color: var(--blue-flip);
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-.va-toggle-btn {
-  background: rgba(56,189,248,0.15);
-  border: 1px solid rgba(56,189,248,0.3);
-  color: var(--blue-flip);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  font-size: 0.75rem;
+  padding: 1px 5px;
+  border-radius: 8px;
   font-weight: 700;
-  padding: 3px 8px;
+}
+
+/* Close button */
+.va-close-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(232,223,192,0.6);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
   line-height: 1;
   transition: all 0.15s;
 }
-.va-toggle-btn:hover {
-  background: rgba(56,189,248,0.3);
-  border-color: var(--blue-flip);
+.va-close-btn:hover {
+  background: rgba(239,68,68,0.25);
+  border-color: rgba(239,68,68,0.5);
+  color: #fca5a5;
 }
 
+/* Hint list */
 .va-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
+  padding: 7px 8px;
 }
 
 .va-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 7px;
+  padding: 6px 8px;
   border-radius: var(--r-sm);
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(56,189,248,0.12);
-  font-size: 0.82rem;
+  border: 1px solid rgba(56,189,248,0.1);
+  font-size: 0.78rem;
   transition: all 0.15s;
   cursor: pointer;
 }
@@ -1430,16 +1423,58 @@ body {
   transform: translateY(-1px);
 }
 .va-item.va-best {
-  background: rgba(56,189,248,0.1);
-  border-color: rgba(56,189,248,0.4);
+  background: rgba(56,189,248,0.11);
+  border-color: rgba(56,189,248,0.38);
 }
-.va-item.va-best:hover {
-  background: rgba(56,189,248,0.22);
+.va-item.va-best:hover { background: rgba(56,189,248,0.22); }
+
+.va-die    { color: rgba(232,223,192,0.65); flex-shrink: 0; font-size: 0.75rem; }
+.va-arrow  { color: var(--blue-flip); font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+.va-gain   { color: var(--green-action); font-weight: 700; margin-left: auto; white-space: nowrap; font-size: 0.72rem; }
+.va-nogain { color: rgba(232,223,192,0.3); font-size: 0.7rem; margin-left: auto; }
+
+/* ── Re-open bubble ─────────────────────────────────────────────────── */
+.va-bubble {
+  position: fixed;
+  bottom: 96px;
+  right: 14px;
+  z-index: 200;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(8,24,42,0.95);
+  border: 2px solid rgba(56,189,248,0.5);
+  color: rgba(232,223,192,0.9);
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6), 0 0 16px rgba(56,189,248,0.2);
+  transition: transform 0.15s, box-shadow 0.15s;
+  animation: fadeIn 0.2s ease-out;
 }
-.va-die    { color: rgba(232,223,192,0.7); flex-shrink: 0; }
-.va-arrow  { color: var(--blue-flip); font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
-.va-gain   { color: var(--green-action); font-weight: 700; margin-left: auto; white-space: nowrap; }
-.va-nogain { color: rgba(232,223,192,0.35); font-size: 0.75rem; margin-left: auto; }
+.va-bubble:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.7), 0 0 22px rgba(56,189,248,0.4);
+}
+.va-bubble.hidden { display: none !important; }
+
+.va-bubble-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--green-action);
+  color: #0a1a10;
+  font-size: 0.6rem;
+  font-weight: 800;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 /* ─── Leaderboard overlay ───────────────────────────────────────────── */
 .leaderboard-overlay {

@@ -711,7 +711,8 @@ function transitionToGameScreen(): void {
     onSkipFlip: handleSkipFlip,
   });
 
-  // Volteo assistant
+  // Volteo assistant — destroy previous instance so body-level elements don't stack
+  volteoAssistant?.destroy();
   const vaMount = document.getElementById('va-mount')!;
   vaMount.innerHTML = '';
   const vaContainer = document.createElement('div');
