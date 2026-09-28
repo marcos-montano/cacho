@@ -634,12 +634,12 @@ function handleGameEvent(event: GameEvent): void {
   const state = engine.getState();
   switch (event.type) {
     case 'DICE_ROLLED':
-      playShake();
+      try { playShake(); } catch { /* ignore audio error */ }
       animateCubilete();
       diceArea?.animateRoll(event.dice);
       break;
     case 'DIE_FLIPPED':
-      playClick();
+      try { playClick(); } catch { /* ignore audio error */ }
       diceArea?.animateFlip(event.dieId);
       toast.show(`↕ ${state.players[state.activePlayerIndex]?.name || ''} ${currentLang === 'es' ? 'volteó un dado' : 'flipped a die'}`);
       break;
@@ -649,15 +649,15 @@ function handleGameEvent(event: GameEvent): void {
         : '✋ Standing De Mano — +5 bonus for Combinations!');
       break;
     case 'CATEGORY_SCORED':
-      playScore();
+      try { playScore(); } catch { /* ignore audio error */ }
       toast.show(`✅ ${event.category.toUpperCase()}: +${event.points} pts${event.isDeMano ? ' (De Mano!)' : ''}`);
       break;
     case 'CATEGORY_SCRATCHED':
-      playClick();
+      try { playClick(); } catch { /* ignore audio error */ }
       toast.show(`✕ ${event.category.toUpperCase()} ${currentLang === 'es' ? 'tachado' : 'scratched'}`);
       break;
     case 'DORMIDA':
-      playWin();
+      try { playWin(); } catch { /* ignore audio error */ }
       dormidaFired = true;
       showDormidaOverlay(state);
       break;
