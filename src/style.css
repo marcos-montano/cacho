@@ -1092,33 +1092,51 @@ body {
   animation: cubileteShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
-/* ─── Dice + Volteo Assistant side-by-side row ──────────────────────── */
+/* ─── Dice + Volteo Assistant Container ───────────────────────────────── */
 .dice-va-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  position: relative;
   width: 100%;
   max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  margin: 0 auto;
 }
 
 .dice-col {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
   flex-shrink: 0;
 }
 
+/* Floating Volteo Assistant container */
 .va-col {
-  flex: 1;
-  min-width: 0;
-  max-width: 280px;
-  align-self: center;
+  z-index: 25;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  transition: all 0.25s ease;
 }
 
-@media (max-width: 560px) {
-  .dice-va-row { flex-direction: column; align-items: center; }
-  .va-col { max-width: 100%; width: 100%; }
+/* On desktop / wide displays, float assistant to the right side
+   so the dice remain dead center in the screen */
+@media (min-width: 860px) {
+  .va-col {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 250px;
+    margin-top: 0;
+  }
 }
 
 /* ─── Setup meta buttons (lang / how-to-play) ───────────────────────── */
@@ -1317,21 +1335,42 @@ body {
 /* ─── Volteo Assistant ──────────────────────────────────────────────── */
 .volteo-assistant {
   width: 100%;
-  max-width: 480px;
-  background: rgba(10,30,50,0.9);
-  border: 1px solid rgba(56,189,248,0.3);
+  max-width: 440px;
+  background: rgba(10,30,50,0.94);
+  border: 1px solid rgba(56,189,248,0.35);
   border-radius: var(--r-lg);
-  padding: 14px 18px;
+  padding: 12px 14px;
   animation: fadeIn 0.25s ease-out;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 20px rgba(56,189,248,0.12);
+  transition: all 0.25s ease;
 }
-.volteo-assistant.hidden { display: none; }
+.volteo-assistant.hidden { display: none !important; }
+
+.volteo-assistant.va-minimized {
+  max-width: 250px;
+  padding: 8px 12px;
+}
+.volteo-assistant.va-minimized .va-list {
+  display: none;
+}
+.volteo-assistant.va-minimized .va-header {
+  margin-bottom: 0;
+}
 
 .va-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
+}
+.va-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
 }
 .va-icon { font-size: 1.1rem; }
 .va-title {
@@ -1340,6 +1379,30 @@ body {
   color: var(--blue-flip);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.va-badge {
+  font-size: 0.7rem;
+  background: rgba(56,189,248,0.2);
+  color: var(--blue-flip);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.va-toggle-btn {
+  background: rgba(56,189,248,0.15);
+  border: 1px solid rgba(56,189,248,0.3);
+  color: var(--blue-flip);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.va-toggle-btn:hover {
+  background: rgba(56,189,248,0.3);
+  border-color: var(--blue-flip);
 }
 
 .va-list {
@@ -1358,12 +1421,20 @@ body {
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(56,189,248,0.12);
   font-size: 0.82rem;
-  transition: background 0.15s;
-  cursor: default;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.va-item:hover {
+  background: rgba(56,189,248,0.18);
+  border-color: rgba(56,189,248,0.45);
+  transform: translateY(-1px);
 }
 .va-item.va-best {
   background: rgba(56,189,248,0.1);
   border-color: rgba(56,189,248,0.4);
+}
+.va-item.va-best:hover {
+  background: rgba(56,189,248,0.22);
 }
 .va-die    { color: rgba(232,223,192,0.7); flex-shrink: 0; }
 .va-arrow  { color: var(--blue-flip); font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }

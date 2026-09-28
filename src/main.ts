@@ -29,6 +29,7 @@ import { HowToPlayModal } from './ui/components/howtoplay';
 import { VolteoAssistant } from './ui/components/volteo_assistant';
 import { Leaderboard } from './ui/components/leaderboard';
 import { fireConfetti } from './ui/animations/confetti';
+import cubileteImg from './assets/cubilete.jpg';
 
 // ---------------------------------------------------------------------------
 // Language state (shared globally so scoreboard / hints follow it)
@@ -150,16 +151,16 @@ function buildHTML(): void {
             </div>
           </div>
 
-          <!-- Cubilete + Dice + Volteo Assistant (side by side) -->
+          <!-- Cubilete + Dice + Volteo Assistant Container -->
           <div class="dice-va-row">
-            <!-- Left: cubilete + dice -->
+            <!-- Centered: cubilete + dice -->
             <div class="dice-col">
               <div id="cubilete-zone" class="cubilete-zone">
-                <img id="cubilete" class="cubilete" src="/cubilete.jpg" alt="El Cubilete" title="El Cubilete — ¡Agita!" />
+                <img id="cubilete" class="cubilete" src="${cubileteImg}" onerror="this.onerror=null;this.src='cubilete.jpg';" alt="El Cubilete" title="El Cubilete — ¡Agita!" />
               </div>
               <div id="dice-mount"></div>
             </div>
-            <!-- Right: Volteo Assistant -->
+            <!-- Floating: Volteo Assistant -->
             <div id="va-mount" class="va-col"></div>
           </div>
 
@@ -715,7 +716,17 @@ function transitionToGameScreen(): void {
   vaMount.innerHTML = '';
   const vaContainer = document.createElement('div');
   vaMount.appendChild(vaContainer);
-  volteoAssistant = new VolteoAssistant(vaContainer);
+  volteoAssistant = new VolteoAssistant(vaContainer, (dieId: number) => {
+    handleDieClick(dieId);
+  });
+
+  // Cubilete click to roll
+  document.getElementById('cubilete')?.addEventListener('click', () => {
+    if (!engine || !checkTurn()) return;
+    const phase = engine.getState().turnPhase;
+    if (phase === 'INIT') handleRoll1();
+    else if (phase === 'ROLLED_1') handleRoll2();
+  });
 
   // Game buttons in game screen
   document.getElementById('btn-game-lang')!.addEventListener('click', toggleLang);

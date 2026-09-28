@@ -74,14 +74,36 @@ const CAT_NAMES: Record<Category, string> = {
   grande2:  'Grande II',
 };
 
-/** Renders the Volteo Assistant tooltip/hint box under the dice area. */
+/** Renders the Volteo Assistant floating hint box under/beside the dice area. */
 export class VolteoAssistant {
   private container: HTMLElement;
+  private onDieClick?: (dieId: number) => void;
+  private isMinimized: boolean = false;
+  private lastArgs?: {
+    dice: Die[];
+    flippedIds: Set<number>;
+    openCategories: Category[];
+    isDeMano: boolean;
+  };
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, onDieClick?: (dieId: number) => void) {
     this.container = container;
+    this.onDieClick = onDieClick;
     this.container.className = 'volteo-assistant hidden';
     this.container.id = 'volteo-assistant';
+  }
+
+  toggleMinimize(): void {
+    this.isMinimized = !this.isMinimized;
+    if (this.lastArgs) {
+      this.render(
+        this.lastArgs.dice,
+        this.lastArgs.flippedIds,
+        this.lastArgs.openCategories,
+        this.lastArgs.isDeMano,
+        true,
+      );
+    }
   }
 
   render(
@@ -92,10 +114,12 @@ export class VolteoAssistant {
     visible: boolean,
   ): void {
     if (!visible) {
+      this.lastArgs = undefined;
       this.container.classList.add('hidden');
       return;
     }
 
+    this.lastArgs = { dice, flippedIds, openCategories, isDeMano };
     const hints = analyzeFlipOptions(dice, flippedIds, openCategories, isDeMano);
     if (hints.length === 0) {
       this.container.classList.add('hidden');
@@ -106,22 +130,58 @@ export class VolteoAssistant {
     hints.sort((a, b) => b.bestGain - a.bestGain);
 
     this.container.classList.remove('hidden');
+    if (this.isMinimized) {
+      this.container.classList.add('va-minimized');
+    } else {
+      this.container.classList.remove('va-minimized');
+    }
+
     this.container.innerHTML = `
       <div class="va-header">
-        <span class="va-icon">🔍</span>
-        <span class="va-title">Volteo Assistant</span>
+        <div class="va-header-left" role="button" tabindex="0" title="Click to collapse/expand">
+          <span class="va-icon">🔍</span>
+          <span class="va-title">Volteo Assistant</span>
+          <span class="va-badge">${hints.length}</span>
+        </div>
+        <button type="button" class="va-toggle-btn" title="${this.isMinimized ? 'Expand' : 'Minimize'}">
+          ${this.isMinimized ? '➕' : '➖'}
+        </button>
       </div>
       <ul class="va-list">
         ${hints.map((h, i) => `
-          <li class="va-item${i === 0 && h.bestGain > 0 ? ' va-best' : ''}" data-die="${h.dieId}">
-            <span class="va-die">🎲 Die ${h.dieId + 1}</span>
+          <li class="va-item${i === 0 && h.bestGain > 0 ? ' va-best' : ''}" data-die="${h.dieId}" title="Click to flip Die ${h.dieId + 1}">
+            <span class="va-die">🎲 Dado ${h.dieId + 1}</span>
             <span class="va-arrow">${h.fromVal} → ${h.toVal}</span>
             ${h.bestGain > 0
               ? `<span class="va-gain">+${h.bestGain} ${CAT_NAMES[h.bestCat!]}</span>`
-              : `<span class="va-nogain">no combo</span>`}
+              : `<span class="va-nogain">sin juego</span>`}
           </li>
         `).join('')}
       </ul>
     `;
+
+    // Attach listeners
+    const toggleBtn = this.container.querySelector('.va-toggle-btn');
+    toggleBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMinimize();
+    });
+
+    const headerLeft = this.container.querySelector('.va-header-left');
+    headerLeft?.addEventListener('click', () => {
+      this.toggleMinimize();
+    });
+
+    if (this.onDieClick) {
+      const items = this.container.querySelectorAll<HTMLElement>('.va-item');
+      items.forEach((item) => {
+        item.addEventListener('click', () => {
+          const dieId = Number(item.dataset.die);
+          if (!isNaN(dieId) && this.onDieClick) {
+            this.onDieClick(dieId);
+          }
+        });
+      });
+    }
   }
 }

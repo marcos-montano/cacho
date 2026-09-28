@@ -152,7 +152,7 @@ describe('Roll 2 + Volteo path', () => {
 
   it('transitions correctly through all Volteo phases', () => {
     engine.roll1();
-    engine.roll2();
+    engine.roll2([1, 1, 2, 3, 5]);
     expect(engine.getState().turnPhase).toBe('VOLTEO_MANDATORY');
 
     engine.flipDie(0);
@@ -164,7 +164,7 @@ describe('Roll 2 + Volteo path', () => {
 
   it('allows optional second flip', () => {
     engine.roll1();
-    engine.roll2();
+    engine.roll2([1, 1, 2, 3, 5]);
     engine.flipDie(0);
     engine.flipDie(1); // second flip
     expect(engine.getState().turnPhase).toBe('SCORING');
@@ -172,15 +172,51 @@ describe('Roll 2 + Volteo path', () => {
 
   it('prevents flipping the same die twice', () => {
     engine.roll1();
-    engine.roll2();
+    engine.roll2([1, 1, 2, 3, 5]);
     engine.flipDie(0);
     expect(() => engine.flipDie(0)).toThrow();
   });
 
-  it('isDeMano is false after taking Roll 2', () => {
+  it('isDeMano is false after taking Roll 2 when not rolling a middle play', () => {
     engine.roll1();
-    engine.roll2();
+    engine.roll2([1, 1, 2, 3, 5]);
     expect(engine.getState().isDeMano).toBe(false);
+    expect(engine.getState().turnPhase).toBe('VOLTEO_MANDATORY');
+  });
+
+  it('isDeMano is true when rolling all dice on Roll 2 and getting Escalera', () => {
+    engine.roll1();
+    engine.roll2([1, 2, 3, 4, 5]);
+    expect(engine.getState().isDeMano).toBe(true);
+    expect(engine.getState().turnPhase).toBe('SCORING');
+    engine.scoreCategory('escalera');
+    expect(engine.getState().players[0].scores.escalera).toBe(25);
+  });
+
+  it('isDeMano is true when rolling all dice on Roll 2 and getting Full House', () => {
+    engine.roll1();
+    engine.roll2([3, 3, 3, 5, 5]);
+    expect(engine.getState().isDeMano).toBe(true);
+    expect(engine.getState().turnPhase).toBe('SCORING');
+    engine.scoreCategory('full');
+    expect(engine.getState().players[0].scores.full).toBe(35);
+  });
+
+  it('isDeMano is true when rolling all dice on Roll 2 and getting Póker', () => {
+    engine.roll1();
+    engine.roll2([4, 4, 4, 4, 2]);
+    expect(engine.getState().isDeMano).toBe(true);
+    expect(engine.getState().turnPhase).toBe('SCORING');
+    engine.scoreCategory('poker');
+    expect(engine.getState().players[0].scores.poker).toBe(45);
+  });
+
+  it('isDeMano is false when keeping dice on Roll 2 even if getting Escalera', () => {
+    engine.roll1();
+    engine.toggleKeep(0); // keep die 0
+    engine.roll2([1, 2, 3, 4, 5]);
+    expect(engine.getState().isDeMano).toBe(false);
+    expect(engine.getState().turnPhase).toBe('VOLTEO_MANDATORY');
   });
 
   it('scores Escalera at 20 pts Volteada (not De Mano)', () => {
@@ -188,11 +224,10 @@ describe('Roll 2 + Volteo path', () => {
     engine.on((e) => events.push(e));
 
     engine.roll1();
-    engine.roll2();
-    // Set dice so that after the mandatory flip of die 0 (6 → 1) we get [1,2,3,4,5]
+    engine.roll2([1, 2, 3, 3, 5]);
+    // After the mandatory flip of die 3 (3 → 4) we get [1,2,3,4,5]
     // which is a valid Escalera worth 20 pts (Volteada, not De Mano).
-    stubDice(engine, [6, 2, 3, 4, 5]);
-    engine.flipDie(0); // 6 → 1 → dice are now [1,2,3,4,5] = Escalera
+    engine.flipDie(3); // 3 → 4 → dice are now [1,2,3,4,5] = Escalera
     engine.skipOptionalFlip();
     engine.scoreCategory('escalera');
 

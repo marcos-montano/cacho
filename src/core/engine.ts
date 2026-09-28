@@ -18,7 +18,7 @@
 
 import { ALL_CATEGORIES, type Category, type Die, type DieFace, type GameEvent, type GameState, type Player, type TurnPhase } from './types';
 import { applyFlip, canFlip } from './volteo';
-import { calculateScore, computeTotalScore, isGrande } from './scoring';
+import { calculateScore, computeTotalScore, isEscalera, isFull, isGrande, isPoker } from './scoring';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -156,11 +156,16 @@ export class GameEngine {
    * All 5 dice are (re)rolled with random values.
    * Detects La Dormida (Five of a Kind on Roll 1 → instant match win).
    */
-  roll1(): void {
+  roll1(forcedFaces?: DieFace[]): void {
     this.assertGameActive();
     this.assertPhase('INIT');
 
     this.state.dice = freshDice();
+    if (forcedFaces) {
+      this.state.dice.forEach((d, i) => {
+        if (forcedFaces[i] !== undefined) d.val = forcedFaces[i];
+      });
+    }
     this.state.rollsUsed = 1;
     this.state.isDeMano = false;
     this.emit({ type: 'DICE_ROLLED', dice: cloneDice(this.state.dice) });
@@ -222,22 +227,40 @@ export class GameEngine {
 
   /**
    * Performs the second roll: re-rolls all dice that are NOT kept.
-   * Enters VOLTEO_MANDATORY afterwards.
+   * If all 5 dice are rolled again and result in one of the middle plays
+   * (Escalera, Full House, or Póker), it counts as "De Mano" (+5 pts bonus)
+   * and transitions directly to SCORING. Otherwise enters VOLTEO_MANDATORY.
    */
-  roll2(): void {
+  roll2(forcedFaces?: DieFace[]): void {
     this.assertGameActive();
     this.assertPhase('ROLLED_1');
 
-    for (const die of this.state.dice) {
+    const allDiceRolled = this.state.dice.every((d) => !d.kept);
+
+    for (let i = 0; i < this.state.dice.length; i++) {
+      const die = this.state.dice[i];
       if (!die.kept) {
-        die.val = randomFace();
+        die.val = forcedFaces && forcedFaces[i] !== undefined ? forcedFaces[i] : randomFace();
         die.flipped = false;
       }
     }
     this.state.rollsUsed = 2;
-    this.state.isDeMano = false;
-    this.emit({ type: 'DICE_ROLLED', dice: cloneDice(this.state.dice) });
-    this.state.turnPhase = 'VOLTEO_MANDATORY';
+
+    const isMiddlePlay =
+      isEscalera(this.state.dice) ||
+      isFull(this.state.dice) ||
+      isPoker(this.state.dice);
+
+    if (allDiceRolled && isMiddlePlay) {
+      this.state.isDeMano = true;
+      this.state.turnPhase = 'SCORING';
+      this.emit({ type: 'DICE_ROLLED', dice: cloneDice(this.state.dice) });
+      this.emit({ type: 'DE_MANO_STOOD' });
+    } else {
+      this.state.isDeMano = false;
+      this.state.turnPhase = 'VOLTEO_MANDATORY';
+      this.emit({ type: 'DICE_ROLLED', dice: cloneDice(this.state.dice) });
+    }
   }
 
   // ------------------------------------------------------------------
